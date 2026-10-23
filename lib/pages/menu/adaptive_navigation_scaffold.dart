@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
 import 'package:kazumi/bean/widget/ios_glass.dart';
+import 'package:kazumi/bean/widget/ios_bottom_scrim.dart';
 import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
@@ -75,11 +76,10 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
             : media.padding.right,
         bottom: vertical ? media.padding.bottom : bottomInset,
       );
-      // iOS backgrounds span the window. App bars and body SafeAreas consume
-      // horizontal navigation/camera insets without cutting a hole in the glass.
-      final layoutInsets = ios
-          ? EdgeInsets.only(bottom: contentInsets.bottom)
-          : contentInsets;
+      // Lists scroll behind the bottom material; only their final items need
+      // padding to clear the floating navigation and home gesture area.
+      final scrollBottomInset = ios ? contentInsets.bottom : 0.0;
+      final layoutInsets = ios ? EdgeInsets.zero : contentInsets;
       final pane = Rect.fromLTWH(
         layoutInsets.left,
         0,
@@ -92,13 +92,13 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
           ios ? contentInsets.left : 0,
           media.padding.top,
           ios ? contentInsets.right : 0,
-          0,
+          scrollBottomInset,
         ),
         viewPadding: EdgeInsets.fromLTRB(
           ios ? contentInsets.left : 0,
           media.viewPadding.top,
           ios ? contentInsets.right : 0,
-          0,
+          ios ? math.max(scrollBottomInset, media.viewPadding.bottom) : 0,
         ),
         displayFeatures: [
           for (final feature in media.displayFeatures)
@@ -124,6 +124,14 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
                 child: MediaQuery(data: contentMedia, child: child),
               ),
             ),
+            if (ios && scrollBottomInset > 0 && media.viewInsets.bottom == 0)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: math.min(size.height, scrollBottomInset + 16),
+                child: const IosBottomScrim(),
+              ),
             // Remove the platform view, rather than only clipping/offstaging it:
             // UIKit glass can otherwise draw its edges above a sliding route.
             if (media.viewInsets.bottom == 0 &&

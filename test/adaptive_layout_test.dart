@@ -353,7 +353,7 @@ void main() {
   );
 
   testWidgets(
-    'safe areas are consumed once and narrow enlarged navigation fits',
+    'horizontal safe areas are consumed and bottom insets reach scroll content',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(320, 568);
@@ -390,8 +390,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(childPadding, const EdgeInsets.only(top: 44));
-      expect(childSize, const Size(284, 426));
+      expect(childPadding, const EdgeInsets.only(top: 44, bottom: 142));
+      expect(childSize, const Size(284, 568));
       expect(tester.takeException(), isNull);
     },
   );

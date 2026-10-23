@@ -222,6 +222,7 @@ class _TimelinePageState extends State<TimelinePage> {
               ),
               body: SafeArea(
                 top: false,
+                bottom: false,
                 child: LayoutBuilder(
                   builder: (context, viewport) => NestedScrollView(
                     // Keep the outer viewport clamped and unstretched so tabs stay fixed.
@@ -257,7 +258,12 @@ class _TimelinePageState extends State<TimelinePage> {
                         ? _TimelineScrollView(
                             slivers: [
                               SliverPadding(
-                                padding: const EdgeInsets.all(24),
+                                padding: EdgeInsets.fromLTRB(
+                                  24,
+                                  24,
+                                  24,
+                                  24 + MediaQuery.paddingOf(context).bottom,
+                                ),
                                 sliver: SliverToBoxAdapter(
                                   child: BangumiMirrorErrorWidget(
                                     onRetry: () => _controller.loadSeason(
@@ -313,7 +319,9 @@ class _TimelinePageState extends State<TimelinePage> {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
-                padding: EdgeInsets.only(bottom: bottomInset),
+                padding: EdgeInsets.only(
+                  bottom: bottomInset + MediaQuery.paddingOf(context).bottom,
+                ),
                 child: const Center(child: LoadingIndicator()),
               ),
             ),
@@ -428,7 +436,12 @@ class _TimelinePageState extends State<TimelinePage> {
           SliverFillRemaining(
             hasScrollBody: false,
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: inset),
+              padding: EdgeInsets.fromLTRB(
+                inset,
+                0,
+                inset,
+                MediaQuery.paddingOf(context).bottom,
+              ),
               child: GeneralEmptyState(
                 icon: filteredOut
                     ? Icons.filter_alt_off_rounded
@@ -446,7 +459,12 @@ class _TimelinePageState extends State<TimelinePage> {
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(inset, 0, inset, 24),
+            padding: EdgeInsets.fromLTRB(
+              inset,
+              0,
+              inset,
+              24 + MediaQuery.paddingOf(context).bottom,
+            ),
             sliver: SliverGrid(
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,

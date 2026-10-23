@@ -90,7 +90,7 @@ class _PopularPageState extends State<PopularPage> {
               StyleString.cardSpace + MediaQuery.paddingOf(context).left,
               0,
               StyleString.cardSpace + MediaQuery.paddingOf(context).right,
-              0,
+              MediaQuery.paddingOf(context).bottom,
             ),
             sliver: Observer(
               builder: (_) {
