@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
 
@@ -64,102 +65,115 @@ class VideoPageLayout extends StatelessWidget {
         playerRect = Offset.zero & size;
         tabsRect = safe;
       } else if (horizontalFold != null) {
-        playerRect = Rect.fromLTRB(
-          safe.left,
-          safe.top,
-          safe.right,
-          horizontalFold.top,
-        );
+        playerRect = Rect.fromLTRB(0, 0, size.width, horizontalFold.top);
         tabsRect = Rect.fromLTRB(
-          safe.left,
+          0,
           horizontalFold.bottom,
-          safe.right,
-          safe.bottom,
+          size.width,
+          size.height,
         );
       } else if (columns) {
         final panel = AdaptiveLayout.playerPanelWidth(safe.width);
-        playerRect = Rect.fromLTRB(
-          safe.left,
-          safe.top,
-          safe.right - panel - 16,
-          safe.bottom,
-        );
+        playerRect = Rect.fromLTRB(0, 0, safe.right - panel, size.height);
         tabsRect = Rect.fromLTRB(
           safe.right - panel,
-          safe.top,
-          safe.right,
-          safe.bottom,
+          0,
+          size.width,
+          size.height,
         );
       } else {
-        final playerHeight = math.min(safe.width * 9 / 16, safe.height * .6);
+        // Preserve a 16:9 inline frame and leave usable room for episode tabs.
+        // Insets protect controls, rather than cutting a white strip out of
+        // the black playback background.
+        final availableHeight = math.max(0.0, safe.height - 160);
+        final playerSize = applyBoxFit(
+          BoxFit.contain,
+          const Size(16, 9),
+          Size(safe.width, availableHeight),
+        ).destination;
         playerRect = Rect.fromLTWH(
-          safe.left,
+          safe.left + (safe.width - playerSize.width) / 2,
           safe.top,
-          safe.width,
-          playerHeight,
+          playerSize.width,
+          playerSize.height,
         );
-        tabsRect = Rect.fromLTRB(
-          safe.left,
-          playerRect.bottom,
-          safe.right,
-          safe.bottom,
-        );
+        tabsRect = Rect.fromLTRB(0, playerRect.bottom, size.width, size.height);
       }
       if (!fillsWindow && verticalFold != null) {
-        playerRect = Rect.fromLTRB(
-          safe.left,
-          safe.top,
-          verticalFold.left,
-          safe.bottom,
-        );
+        playerRect = Rect.fromLTRB(0, 0, verticalFold.left, size.height);
         tabsRect = Rect.fromLTRB(
           verticalFold.right,
-          safe.top,
-          safe.right,
-          safe.bottom,
+          0,
+          size.width,
+          size.height,
         );
       }
+      EdgeInsets insetsFor(Rect rect) => EdgeInsets.fromLTRB(
+        math.max(0, safe.left - rect.left),
+        math.max(0, safe.top - rect.top),
+        math.max(0, rect.right - safe.right),
+        math.max(0, rect.bottom - safe.bottom),
+      );
       // Positions change, not widget ancestry. Folding must not dispose playback
       // or reset the active episode, tabs, focus and player control state.
-      return Stack(
-        children: [
-          Positioned.fromRect(
-            rect: playerRect,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(columns ? 20 : 0),
-              child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  size: playerRect.size,
-                  padding: fillsWindow ? padding : EdgeInsets.zero,
-                  viewPadding: fillsWindow
-                      ? MediaQuery.viewPaddingOf(context)
-                      : EdgeInsets.zero,
-                ),
-                child: Builder(
-                  builder: (context) => playerBuilder(context, (
-                    fillsWindow: fillsWindow,
-                    hasSidePanel: hasSidePanel,
-                  )),
+      final panelAtStatusArea =
+          !fillsWindow && (columns || verticalFold != null);
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value:
+            panelAtStatusArea &&
+                Theme.of(context).brightness == Brightness.light
+            ? SystemUiOverlayStyle.dark
+            : SystemUiOverlayStyle.light,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: Colors.black),
+            Positioned.fromRect(
+              rect: playerRect,
+              child: ClipRect(
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    size: playerRect.size,
+                    padding: insetsFor(playerRect),
+                    viewPadding: insetsFor(playerRect),
+                  ),
+                  child: Builder(
+                    builder: (context) => playerBuilder(context, (
+                      fillsWindow: fillsWindow,
+                      hasSidePanel: hasSidePanel,
+                    )),
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned.fromRect(
-            rect: tabsRect,
-            child: Offstage(
-              offstage: fillsWindow,
-              child: MediaQuery.removePadding(
-                context: context,
-                removeTop: true,
-                removeBottom: true,
-                removeLeft: true,
-                removeRight: true,
-                child: tabs,
+            Positioned.fromRect(
+              rect: tabsRect,
+              child: Offstage(
+                offstage: fillsWindow,
+                // Only one episode panel may own its GlobalKey at a time.
+                child: hasSidePanel
+                    ? const SizedBox.shrink()
+                    : ColoredBox(
+                        color: Theme.of(context).colorScheme.surface,
+                        child: Padding(
+                          padding: insetsFor(tabsRect),
+                          child: MediaQuery.removePadding(
+                            context: context,
+                            removeTop: true,
+                            removeBottom: true,
+                            removeLeft: true,
+                            removeRight: true,
+                            child: tabs,
+                          ),
+                        ),
+                      ),
               ),
             ),
-          ),
-          if (hasSidePanel) sidePanel!,
-        ],
+            // A dismissed sidebar returns SizedBox.shrink(). It must never set
+            // the Stack's size to zero and clip the playing video on fullscreen.
+            if (hasSidePanel) Positioned.fill(child: sidePanel!),
+          ],
+        ),
       );
     },
   );
