@@ -241,6 +241,8 @@
             with:
               channel: stable
               flutter-version-file: pubspec.yaml
+          - name: Check iPhone Duo SDK
+            run: bash tool/check_ios_sdk.sh
           - run: flutter pub get
           - name: Install native build tools
             run: brew install cmake ninja

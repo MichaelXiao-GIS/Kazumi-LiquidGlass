@@ -1,0 +1,57 @@
+# Kazumi · iOS 27 / iPhone Duo
+
+这个分支基于上游 `7cb58d7d`（2.4.2），保留 Flutter、采集规则、弹幕、收藏、同步和播放服务，调整导航与自适应布局。
+
+## 界面
+
+- iOS 导航使用 UIKit `UIGlassEffect`，支持系统深浅色、iOS 27 透明度偏好、降低透明度和增强对比度；iOS 15–25 使用系统材质回退。
+- 悬浮标签栏、独立搜索按钮、SF Symbols、系统字体、圆角内容卡片与分组设置。玻璃用于悬浮导航，标题栏与内容使用同色背景，避免矩形玻璃边缘产生分隔线。
+- 导航按实际可用空间切换底栏/侧栏。iOS 27.1 的 `UIView.reservedRegions(kind:)` 通过场景桥接获取遮挡与折叠分区；右侧系统区域出现时，导航在其下方竖排。
+- 主路由出口在尺寸变化时保持同一个组件位置，保留路由与滚动状态。
+- 热门海报按内容区域宽度与文字缩放计算列数，避免侧栏展开后仍按整屏宽度布局。
+- 播放页支持窄屏上下布局、宽屏视频/选集双栏、系统报告的水平/竖直折叠分区布局和显式全屏。播放器组件在布局切换时保持挂载。
+- iOS 全屏播放不强制锁定横屏；尊重当前窗口尺寸和安全区域。Android 的全屏旋转逻辑保持不变。
+
+## 构建
+
+需要 Flutter **3.47.7**、Xcode **27.1 或更新**、CocoaPods、CMake >= 3.22 和 Ninja。SDK 版本与最低运行版本是两回事：构建使用 iOS 27.1+ SDK，Flutter 3.47.7 要求最低运行版本 **iOS 15**。
+
+```sh
+flutter pub get
+flutter analyze --no-fatal-infos
+flutter test
+bash tool/build_ios27.sh
+```
+
+`dist/Kazumi_iOS27_unsigned.ipa` 是未签名包，需要自己的 Apple 开发者签名或侧载工具重新签名。脚本没有上传、发布或修改远端仓库。
+
+GitHub 的 iOS 构建会先检查 SDK；运行器必须安装并选择 Xcode 27.1+。如果系统有多个 Xcode，可以设置 `DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer`。
+
+## 验证范围
+
+自动化布局测试位于 `test/adaptive_layout_test.dart`，覆盖窄屏/宽屏/矮窗口、字号放大、不对称安全区域、折叠时路由和播放器状态保留、双栏、水平/竖直折叠分区及弹出面板避让、顶栏全宽及深浅色像素连续性。
+
+## 本地验证记录
+
+- 全套 Flutter 测试：225 项通过；其中 12 项覆盖新增自适应行为。
+- `flutter analyze --no-fatal-infos`：通过，没有 error/warning；上游现有 17 条 info 级提示保留。
+- 使用 Xcode 27.1 / iOS 27.1 SDK 编译通过模拟器 Debug 和真机 Release（无签名）。
+- Device Hub 的 iPhone Duo / iOS 27.1 模拟器：已操作首次运行、首页加载、原生标签切换、展开、闭合、半折叠与旋转；检查了相机/状态区域下方的侧栏，并修复浅色状态栏对比度、顶栏相机侧缺口及底部边缘高光。
+- 尚未验证 Duo 真机、真实视频源播放连续性、画中画和后台播放；布局测试中的播放器是用于验证组件生命周期的替身。
+
+## 发布前检查
+
+发布前仍需在 Device Hub 的 iPhone Duo 模拟器和真机完成以下完整回归：
+
+1. 外屏与内屏之间切换、四个旋转方向、半折叠和左右分屏。
+2. 导航、搜索、弹出菜单和播放器控件避开相机、状态区域与折线。
+3. 播放过程中折叠保持集数、播放进度、弹幕与音频连续；全屏和画中画返回正常。
+4. 系统深浅色、透明度滑块、降低透明度、增强对比度、减少动态效果、VoiceOver 和大字号。
+5. 真实规则源搜索、解析、下载和后台播放；自动化布局测试不替代联网播放或设备验证。
+
+## 依据
+
+- [Apple：iPhone Duo 适配指南](https://developer.apple.com/iphone-duo/prepare/)
+- [Apple：Prepare your app for iPhone Duo](https://developer.apple.com/videos/play/tech-talks/111461/)
+- [Apple：Liquid Glass](https://developer.apple.com/documentation/TechnologyOverviews/liquid-glass)
+- [Apple：UIGlassEffect](https://developer.apple.com/documentation/uikit/uiglasseffect)

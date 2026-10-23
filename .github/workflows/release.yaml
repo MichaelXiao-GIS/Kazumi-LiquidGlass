@@ -5,6 +5,8 @@
       push:
         tags:
           - "*"
+          # These releases upload a locally validated IPA without rebuilding every platform.
+          - "!*-ios27.1-test.*"
       workflow_dispatch:
         inputs:
           logLevel:
@@ -419,6 +421,8 @@
             with:
               channel: stable
               flutter-version-file: pubspec.yaml
+          - name: Check iPhone Duo SDK
+            run: bash tool/check_ios_sdk.sh
           - run: flutter pub get
           - name: Install native build tools
             run: brew install cmake ninja

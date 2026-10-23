@@ -22,14 +22,16 @@ class DisplayModeService {
       }
 
       // Restore system orientation on exit, including an existing landscape.
-      await _attempt(() => SystemChrome.setPreferredOrientations(
-            fullscreen
-                ? [
-                    DeviceOrientation.landscapeLeft,
-                    DeviceOrientation.landscapeRight
-                  ]
-                : [],
-          ));
+      await _attempt(
+        () => SystemChrome.setPreferredOrientations(
+          fullscreen && !Platform.isIOS
+              ? [
+                  DeviceOrientation.landscapeLeft,
+                  DeviceOrientation.landscapeRight,
+                ]
+              : [],
+        ),
+      );
     });
   }
 
@@ -58,21 +60,20 @@ class DisplayModeService {
     // Rotation acknowledgements must not delay immersion or route cleanup.
     late final Future<void> request;
     request = (_pendingSystemBars ?? Future<void>.value())
-        .then((_) => _attempt(() async {
-              if (Platform.isAndroid) {
-                await _intentChannel.invokeMethod(
-                    'setSystemBarsHidden', hidden);
-              } else if (Platform.isIOS) {
-                await SystemChrome.setEnabledSystemUIMode(
-                  hidden
-                      ? SystemUiMode.immersiveSticky
-                      : SystemUiMode.edgeToEdge,
-                );
-              }
-            }))
+        .then(
+          (_) => _attempt(() async {
+            if (Platform.isAndroid) {
+              await _intentChannel.invokeMethod('setSystemBarsHidden', hidden);
+            } else if (Platform.isIOS) {
+              await SystemChrome.setEnabledSystemUIMode(
+                hidden ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+              );
+            }
+          }),
+        )
         .whenComplete(() {
-      if (identical(_pendingSystemBars, request)) _pendingSystemBars = null;
-    });
+          if (identical(_pendingSystemBars, request)) _pendingSystemBars = null;
+        });
     return _pendingSystemBars = request;
   }
 
@@ -80,8 +81,11 @@ class DisplayModeService {
     try {
       await operation();
     } catch (error, stackTrace) {
-      KazumiLogger().e('Display: failed to apply video display mode',
-          error: error, stackTrace: stackTrace);
+      KazumiLogger().e(
+        'Display: failed to apply video display mode',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 }

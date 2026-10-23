@@ -16,6 +16,7 @@ import 'package:kazumi/navigation.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/theme.dart';
+import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 
 class AppWidget extends StatefulWidget {
   const AppWidget({super.key});
@@ -156,8 +157,9 @@ class _AppWidgetState extends State<AppWidget>
   void _syncWindowsTitleBarBrightness(ThemeProvider themeProvider) {
     if (!Platform.isWindows) return;
 
-    final brightness =
-        themeProvider.isEffectiveDark() ? Brightness.dark : Brightness.light;
+    final brightness = themeProvider.isEffectiveDark()
+        ? Brightness.dark
+        : Brightness.light;
     if (_lastTitleBarBrightness == brightness) return;
 
     _lastTitleBarBrightness = brightness;
@@ -205,13 +207,10 @@ class _AppWidgetState extends State<AppWidget>
 
         action = result.action;
         if (result.rememberChoice) {
-          await GStorage.putSetting(
-            SettingsKeys.exitBehavior,
-            switch (action) {
-              ExitDialogAction.exit => 0,
-              ExitDialogAction.minimizeToTray => 1,
-            },
-          );
+          await GStorage.putSetting(SettingsKeys.exitBehavior, switch (action) {
+            ExitDialogAction.exit => 0,
+            ExitDialogAction.minimizeToTray => 1,
+          });
         }
       }
 
@@ -231,11 +230,13 @@ class _AppWidgetState extends State<AppWidget>
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.paused) {
-      KazumiLogger()
-          .i("AppLifecycleState.paused: Application moved to background");
+      KazumiLogger().i(
+        "AppLifecycleState.paused: Application moved to background",
+      );
     } else if (state == AppLifecycleState.resumed) {
-      KazumiLogger()
-          .i("AppLifecycleState.resumed: Application moved to foreground");
+      KazumiLogger().i(
+        "AppLifecycleState.resumed: Application moved to foreground",
+      );
       await MeteredNetworkService.refresh();
     } else if (state == AppLifecycleState.inactive) {
       KazumiLogger().i("AppLifecycleState.inactive: Application is inactive");
@@ -247,7 +248,8 @@ class _AppWidgetState extends State<AppWidget>
     super.didChangePlatformBrightness();
     final ThemeProvider themeProvider = context.read<ThemeProvider>();
     KazumiLogger().i(
-        "Platform brightness changed, themeMode: ${themeProvider.themeMode}");
+      "Platform brightness changed, themeMode: ${themeProvider.themeMode}",
+    );
 
     _syncWindowsTitleBarBrightness(themeProvider);
   }
@@ -266,11 +268,13 @@ class _AppWidgetState extends State<AppWidget>
       await trayManager.setToolTip('Kazumi');
     }
 
-    Menu trayMenu = Menu(items: [
-      MenuItem(key: 'show_window', label: '显示窗口'),
-      MenuItem.separator(),
-      MenuItem(key: 'exit', label: '退出 Kazumi')
-    ]);
+    Menu trayMenu = Menu(
+      items: [
+        MenuItem(key: 'show_window', label: '显示窗口'),
+        MenuItem.separator(),
+        MenuItem(key: 'exit', label: '退出 Kazumi'),
+      ],
+    );
     await trayManager.setContextMenu(trayMenu);
   }
 
@@ -302,19 +306,30 @@ class _AppWidgetState extends State<AppWidget>
             : dynamicDarkTheme;
 
         return MaterialApp.router(
+          debugShowCheckedModeBanner: false,
           title: "Kazumi",
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           supportedLocales: const [
             Locale.fromSubtags(
-                languageCode: 'zh', scriptCode: 'Hans', countryCode: "CN")
+              languageCode: 'zh',
+              scriptCode: 'Hans',
+              countryCode: "CN",
+            ),
           ],
           locale: const Locale.fromSubtags(
-              languageCode: 'zh', scriptCode: 'Hans', countryCode: "CN"),
-          theme: lightTheme,
-          darkTheme: effectiveDarkTheme,
+            languageCode: 'zh',
+            scriptCode: 'Hans',
+            countryCode: "CN",
+          ),
+          theme: Platform.isIOS ? iosAppTheme(lightTheme) : lightTheme,
+          darkTheme: Platform.isIOS
+              ? iosAppTheme(effectiveDarkTheme)
+              : effectiveDarkTheme,
           themeMode: themeProvider.themeMode,
           scaffoldMessengerKey: rootScaffoldMessengerKey,
           routerConfig: ModularApp.routerConfigOf(context),
+          builder: (context, child) =>
+              IosSceneEnvironment(child: child ?? const SizedBox.shrink()),
         );
       },
     );

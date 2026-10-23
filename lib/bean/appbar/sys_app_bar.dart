@@ -40,7 +40,12 @@ class SysAppBar extends StatelessWidget implements PreferredSizeWidget {
         ((ModalRoute.of(context)?.impliesAppBarDismissal ?? false)
             ? IconButton(
                 onPressed: () => context.maybePop(),
-                icon: const Icon(Icons.arrow_back),
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                icon: Icon(
+                  Platform.isIOS
+                      ? Icons.arrow_back_ios_new_rounded
+                      : Icons.arrow_back,
+                ),
               )
             : null);
 
@@ -71,6 +76,7 @@ class SysAppBar extends StatelessWidget implements PreferredSizeWidget {
         backgroundColor: backgroundColor,
         automaticallyImplyLeading: false,
         systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarBrightness: Theme.of(context).brightness,
           statusBarColor: Colors.transparent,
           statusBarIconBrightness:
               Theme.of(context).brightness == Brightness.light

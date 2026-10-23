@@ -1,6 +1,6 @@
 <div align=center>
 
-<h1>Kazumi</h1>
+<h1>Kazumi Liquid Glass</h1>
 
 <img src="assets/images/logo/logo_rounded.png" width=200></img>
 
@@ -15,13 +15,17 @@
 <p>使用 Flutter 开发的基于自定义规则的番剧采集与在线观看程序。使用最多五行基于 <code>Xpath</code> 语法的选择器构建自己的规则。支持规则导入与规则分享。支持基于 <code>Anime4K</code> 的实时超分辨率。绝赞开发中 (～￣▽￣)～</p>
 </div>
 
+**iOS 改版测试包：** [下载 IPA 与查看安装说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.1)。
+
+本仓库基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 2.4.2，加入原生 Liquid Glass 导航和 iPhone Duo 自适应布局。测试包使用 iOS 27.1 SDK 构建，最低支持 iOS 15；IPA 未签名，需要重新签名后侧载。改动与验证范围见 [适配说明](docs/ios27-liquid-glass.md)。
+
 ## 支持平台
 
 - Android 10 及以上
 - Windows 10 及以上
 - MacOS 10.15 及以上
 - Linux (实验性)
-- iOS 13 及以上 (需要 [侧载](https://kazumi.app/docs/misc/how-to-install-in-ios))
+- iOS 15 及以上 (需要 [侧载](https://kazumi.app/docs/misc/how-to-install-in-ios))
 - HarmonyOS 5.0 及以上 (位于 [分支仓库](https://github.com/ErBWs/Kazumi/releases/latest)，需要 [侧载](https://kazumi.app/docs/misc/how-to-install-in-ohos))
 - Web 浏览器 (位于 [分支仓库](https://github.com/0Chencc/KazumiWeb/releases/latest)，需要在 Windows / Linux / MacOS 电脑或通过 Docker 运行服务端，同一局域网内的设备通过浏览器访问)
 
@@ -209,3 +213,7 @@ A: 本项目编译需要良好的网络环境, 除了由 Google 托管的 Flutte
 感谢 [avbuild](https://github.com/wang-bin/avbuild) 本项目使用了来自 avbuild 的树外补丁实现非标准视频流播放。
 
 感谢 [hive](https://github.com/isar/hive) 本项目持久化储存能力来自 hive。
+
+## iOS 27 Liquid Glass / iPhone Duo 分支
+
+本地改版的界面、SDK 要求、构建方式与验证范围见 [适配说明](docs/ios27-liquid-glass.md)。

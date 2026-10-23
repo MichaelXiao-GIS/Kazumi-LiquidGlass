@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:kazumi/navigation.dart';
+import 'package:kazumi/utils/adaptive_layout.dart';
+import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/services/platform/display_mode_service.dart';
 
 /// Place above Scaffold to measure the window without keyboard insets.
@@ -63,12 +65,25 @@ class _VideoSystemBarsState extends State<VideoSystemBars> with RouteAware {
       unawaited(DisplayModeService.releaseSystemBars(this));
     } else if (!widget.isPip) {
       // PiP keeps the full-window preference until its original metrics return.
-      final landscape =
-          MediaQuery.orientationOf(context) == Orientation.landscape;
-      unawaited(DisplayModeService.setSystemBarsHidden(
-        owner: this,
-        hidden: widget.fullscreen || landscape,
-      ));
+      final size = MediaQuery.sizeOf(context);
+      final scene = IosSceneEnvironment.of(context);
+      final divided =
+          scene.matches(size) &&
+          (AdaptiveLayout.horizontalDivision(size, scene.divisions) != null ||
+              AdaptiveLayout.verticalDivision(size, scene.divisions) != null);
+      final fillsWindow =
+          !divided &&
+          AdaptiveLayout.playerFillsWindow(
+            size,
+            fullscreen: false,
+            isPip: false,
+          );
+      unawaited(
+        DisplayModeService.setSystemBarsHidden(
+          owner: this,
+          hidden: widget.fullscreen || fillsWindow,
+        ),
+      );
     }
   }
 

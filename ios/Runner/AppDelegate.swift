@@ -20,6 +20,9 @@ import app_links
 
     func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
         GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+        if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "KazumiGlassPlugin") {
+            KazumiGlassPlugin.register(with: registrar)
+        }
 
         let channel = FlutterMethodChannel(
             name: "com.predidit.kazumi/intent",

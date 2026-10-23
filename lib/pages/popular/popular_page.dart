@@ -1,5 +1,7 @@
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/widget/bangumi_mirror_error_widget.dart';
 import 'package:kazumi/bean/widget/kazumi_menu.dart';
@@ -13,12 +15,10 @@ import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/platform/desktop_window_config.dart';
 import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
 import 'package:kazumi/utils/device.dart';
+import 'package:kazumi/utils/adaptive_layout.dart';
 
 class PopularPage extends StatefulWidget {
-  const PopularPage({
-    super.key,
-    required this.controller,
-  });
+  const PopularPage({super.key, required this.controller});
 
   final PopularController controller;
 
@@ -54,8 +54,9 @@ class _PopularPageState extends State<PopularPage> {
     if (scrollController.position.pixels >=
             scrollController.position.maxScrollExtent - 200 &&
         !popularController.isLoadingMore) {
-      KazumiLogger()
-          .i('PopularPageController: Fetching next recommendation batch');
+      KazumiLogger().i(
+        'PopularPageController: Fetching next recommendation batch',
+      );
       if (popularController.currentTag != '') {
         popularController.queryBangumiByTag();
       } else {
@@ -75,7 +76,9 @@ class _PopularPageState extends State<PopularPage> {
             child: Observer(
               builder: (_) => AnimatedOpacity(
                 opacity: popularController.isLoadingMore ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 300),
                 child: popularController.isLoadingMore
                     ? const LinearProgressIndicator(minHeight: 4)
                     : const SizedBox(height: 4),
@@ -83,9 +86,14 @@ class _PopularPageState extends State<PopularPage> {
             ),
           ),
           SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                  StyleString.cardSpace, 0, StyleString.cardSpace, 0),
-              sliver: Observer(builder: (_) {
+            padding: EdgeInsets.fromLTRB(
+              StyleString.cardSpace + MediaQuery.paddingOf(context).left,
+              0,
+              StyleString.cardSpace + MediaQuery.paddingOf(context).right,
+              0,
+            ),
+            sliver: Observer(
+              builder: (_) {
                 if (popularController.isTimeOut) {
                   return SliverToBoxAdapter(
                     child: SizedBox(
@@ -112,138 +120,188 @@ class _PopularPageState extends State<PopularPage> {
                       ? popularController.trendList
                       : popularController.bangumiList,
                 );
-              })),
+              },
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => scrollController.animateTo(0,
-            duration: const Duration(milliseconds: 350), curve: Curves.easeOut),
+        onPressed: () => scrollController.animateTo(
+          0,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 350),
+          curve: Curves.easeOut,
+        ),
+        tooltip: '返回顶部',
         child: const Icon(Icons.arrow_upward),
       ),
     );
   }
 
   Widget contentGrid(List<BangumiItem> bangumiList) {
-    int crossCount = 3;
-    if (MediaQuery.sizeOf(context).width > LayoutBreakpoint.compact['width']!) {
-      crossCount = 5;
-    }
-    if (MediaQuery.sizeOf(context).width > LayoutBreakpoint.medium['width']!) {
-      crossCount = 6;
-    }
-    return SliverPadding(
-      padding: const EdgeInsets.all(8),
-      sliver: SliverGrid(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          // 行间距
-          mainAxisSpacing: StyleString.cardSpace - 2,
-          // 列间距
-          crossAxisSpacing: StyleString.cardSpace,
-          // 列数
-          crossAxisCount: crossCount,
-          mainAxisExtent:
-              MediaQuery.of(context).size.width / crossCount / 0.65 +
-                  MediaQuery.textScalerOf(context).scale(32.0),
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (BuildContext context, int index) {
-            return bangumiList.isNotEmpty
-                ? BangumiCardV(bangumiItem: bangumiList[index])
-                : null;
-          },
-          childCount: bangumiList.isNotEmpty ? bangumiList.length : 10,
-        ),
-      ),
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        final width = (constraints.crossAxisExtent - 16).clamp(
+          0.0,
+          double.infinity,
+        );
+        final scaler = MediaQuery.textScalerOf(context);
+        final columns = AdaptiveLayout.posterColumns(width, scaler);
+        final posterWidth = (width - spacing * (columns - 1)) / columns;
+        return SliverPadding(
+          padding: const EdgeInsets.all(8),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              mainAxisSpacing: 16,
+              crossAxisSpacing: spacing,
+              crossAxisCount: columns,
+              mainAxisExtent: posterWidth / .65 + scaler.scale(16) * 2.8 + 12,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => BangumiCardV(bangumiItem: bangumiList[index]),
+              childCount: bangumiList.length,
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget buildSliverAppBar() {
     final theme = Theme.of(context);
+    final headerHeight = math.max(
+      120.0,
+      MediaQuery.textScalerOf(context).scale(34) * 1.3 + 32,
+    );
     return SliverAppBar(
       pinned: true,
       stretch: true,
-      expandedHeight: 120,
+      expandedHeight: headerHeight,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
       titleSpacing: 0,
       centerTitle: false,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarBrightness: theme.brightness,
+        statusBarIconBrightness: theme.brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+      backgroundColor: theme.colorScheme.surface,
       actions: buildActions(),
       title: null,
-      flexibleSpace: SafeArea(
-        child: dtb.DragToMoveArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final double maxExtent = 120 - MediaQuery.of(context).padding.top;
-              final t = (1 -
-                  ((constraints.maxHeight - kToolbarHeight) /
-                          (maxExtent - kToolbarHeight))
-                      .clamp(0.0, 1.0));
-              // 字重收缩后为 w500，展开时为 w700
-              final fontWeight = t < 0.5 ? FontWeight.w700 : FontWeight.w500;
-              final fontSize = lerpDouble(28, 20, t)!;
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: const EdgeInsets.only(
-                      left: 16, top: 8, bottom: 8, right: 60),
-                  child: SizedBox(
-                    height: 44,
-                    child: Observer(
-                      builder: (_) {
-                        final bool isTrend = popularController.currentTag == '';
-                        return KazumiMenuButton(
-                          animated: true,
-                          style: const MenuStyle(
-                            maximumSize: WidgetStatePropertyAll(Size(240, 350)),
-                          ),
-                          menuChildren: [
-                            for (final tag in ['', ...defaultAnimeTags])
-                              KazumiMenuItem(
-                                label: tag.isEmpty ? '热门番组' : tag,
-                                selected: tag == popularController.currentTag,
-                                onPressed: () => _selectTag(tag),
-                              ),
-                          ],
-                          builder: (context, toggle) => InkWell(
-                            borderRadius: BorderRadius.circular(8),
-                            onTap: toggle,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  isTrend ? '热门番组' : popularController.currentTag,
-                                  style: theme.textTheme.headlineMedium!.copyWith(
-                                    fontWeight: fontWeight,
-                                    fontSize: fontSize,
-                                  ),
+      flexibleSpace: Stack(
+        fit: StackFit.expand,
+        children: [
+          SafeArea(
+            child: dtb.DragToMoveArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxExtent = headerHeight;
+                  final t =
+                      (1 -
+                      ((constraints.maxHeight - kToolbarHeight) /
+                              (maxExtent - kToolbarHeight))
+                          .clamp(0.0, 1.0));
+                  // 字重收缩后为 w500，展开时为 w700
+                  final fontWeight = t < 0.5
+                      ? FontWeight.w700
+                      : FontWeight.w500;
+                  final fontSize = lerpDouble(
+                    theme.platform == TargetPlatform.iOS ? 34 : 28,
+                    20,
+                    t,
+                  )!;
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                        left: 16,
+                        top: 8,
+                        bottom: 8,
+                        right: 60,
+                      ),
+                      child: SizedBox(
+                        height: math.max(
+                          44,
+                          MediaQuery.textScalerOf(context).scale(fontSize) *
+                              1.3,
+                        ),
+                        child: Observer(
+                          builder: (_) {
+                            final bool isTrend =
+                                popularController.currentTag == '';
+                            return KazumiMenuButton(
+                              animated: true,
+                              style: const MenuStyle(
+                                maximumSize: WidgetStatePropertyAll(
+                                  Size(240, 350),
                                 ),
-                                const SizedBox(width: 4),
-                                Icon(Icons.keyboard_arrow_down,
-                                    size: fontSize, color: theme.iconTheme.color),
+                              ),
+                              menuChildren: [
+                                for (final tag in ['', ...defaultAnimeTags])
+                                  KazumiMenuItem(
+                                    label: tag.isEmpty ? '热门番组' : tag,
+                                    selected:
+                                        tag == popularController.currentTag,
+                                    onPressed: () => _selectTag(tag),
+                                  ),
                               ],
-                            ),
-                          ),
-                        );
-                      },
+                              builder: (context, toggle) => InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: toggle,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        isTrend
+                                            ? '热门番组'
+                                            : popularController.currentTag,
+                                        style: theme.textTheme.headlineMedium!
+                                            .copyWith(
+                                              fontWeight: fontWeight,
+                                              fontSize: fontSize,
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.keyboard_arrow_down,
+                                      size: fontSize,
+                                      color: theme.iconTheme.color,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              );
-            },
+                  );
+                },
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   List<Widget> buildActions() {
     return <Widget>[
-      if (MediaQuery.of(context).orientation == Orientation.portrait)
-        IconButton(
-          tooltip: '搜索',
-          onPressed: () => context.pushNamed('/search/'),
-          icon: const Icon(Icons.search),
-        ),
+      IconButton(
+        tooltip: '搜索',
+        onPressed: () => context.pushNamed('/search/'),
+        icon: const Icon(Icons.search),
+      ),
       IconButton(
         tooltip: '历史记录',
         onPressed: () => context.pushNamed('/settings/history/'),
@@ -260,8 +318,13 @@ class _PopularPageState extends State<PopularPage> {
 
   Future<void> _selectTag(String selected) async {
     if (!mounted || selected == popularController.currentTag) return;
-    scrollController.animateTo(0,
-        duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+    scrollController.animateTo(
+      0,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
     popularController.setCurrentTag(selected);
     if (selected.isEmpty) {
       popularController.clearBangumiList();
