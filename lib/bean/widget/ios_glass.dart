@@ -108,6 +108,9 @@ class _IosGlassNavigationState extends State<IosGlassNavigation> {
 
   @override
   void dispose() {
+    // Platform-view disposal is deferred by the engine. Hide the native effect
+    // immediately so it cannot survive a frame of the next route's animation.
+    _channel?.invokeMethod<void>('hide');
     _channel?.setMethodCallHandler(null);
     super.dispose();
   }

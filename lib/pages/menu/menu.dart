@@ -16,14 +16,10 @@ class ScaffoldMenu extends StatefulWidget {
   State<ScaffoldMenu> createState() => _ScaffoldMenu();
 }
 
-class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
+class _ScaffoldMenu extends State<ScaffoldMenu> {
   final _outletKey = GlobalKey<RouterOutletState>();
   late int _selectedIndex = menu.indexForPath(widget.location);
   DateTime? _lastExitPromptAt;
-
-  /// The shell sits at the bottom of the root stack and stays mounted while
-  /// other pages cover it, so it publishes that state for its subtree.
-  bool _isCovered = false;
 
   @override
   void didUpdateWidget(covariant ScaffoldMenu oldWidget) {
@@ -31,34 +27,6 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
     if (oldWidget.location != widget.location) {
       _selectedIndex = menu.indexForPath(widget.location);
     }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    if (route is PageRoute<void>) {
-      rootRouteObserver.subscribe(this, route);
-    }
-  }
-
-  @override
-  void dispose() {
-    rootRouteObserver.unsubscribe(this);
-    super.dispose();
-  }
-
-  @override
-  void didPushNext() => _setCovered(true);
-
-  @override
-  void didPopNext() => _setCovered(false);
-
-  void _setCovered(bool value) {
-    if (!mounted || _isCovered == value) {
-      return;
-    }
-    setState(() => _isCovered = value);
   }
 
   void _selectDestination(int index) {
@@ -98,8 +66,8 @@ class _ScaffoldMenu extends State<ScaffoldMenu> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-    return RouteVisibility(
-      isCovered: _isCovered,
+    return RouteVisibilityScope(
+      observer: rootRouteObserver,
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {

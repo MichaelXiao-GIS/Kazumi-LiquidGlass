@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
 import 'package:kazumi/bean/widget/ios_glass.dart';
 import 'package:kazumi/bean/widget/ios_scene_environment.dart';
+import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
 
 /// The outlet occupies one stable tree position through every fold/resize.
@@ -123,7 +124,10 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
                 child: MediaQuery(data: contentMedia, child: child),
               ),
             ),
-            if (media.viewInsets.bottom == 0)
+            // Remove the platform view, rather than only clipping/offstaging it:
+            // UIKit glass can otherwise draw its edges above a sliding route.
+            if (media.viewInsets.bottom == 0 &&
+                (!ios || RouteVisibility.nativeControlsVisibleOf(context)))
               Positioned(
                 left: vertical
                     ? (trailing

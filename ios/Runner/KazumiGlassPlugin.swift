@@ -123,6 +123,13 @@ private final class KazumiGlassView: NSObject, FlutterPlatformView {
             navigation.onSearch = { [weak self] in self?.channel.invokeMethod("search", arguments: nil) }
         }
         channel.setMethodCallHandler { [weak self] call, result in
+            if call.method == "hide" {
+                self?.content.isHidden = true
+                self?.content.isUserInteractionEnabled = false
+                self?.content.accessibilityElementsHidden = true
+                result(nil)
+                return
+            }
             guard call.method == "update", let config = call.arguments as? [String: Any] else {
                 result(FlutterMethodNotImplemented); return
             }
