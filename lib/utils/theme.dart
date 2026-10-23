@@ -90,7 +90,7 @@ ThemeData iosAppTheme(ThemeData base) {
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      shape: const CircleBorder(),
+      shape: const StadiumBorder(),
       elevation: 0,
       backgroundColor: colors.surfaceContainerLow,
       foregroundColor: colors.primary,
