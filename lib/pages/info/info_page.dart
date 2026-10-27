@@ -487,18 +487,36 @@ class _InfoPageState extends State<InfoPage>
       ),
       floatingActionButton: ValueListenableBuilder<bool>(
         valueListenable: _watchButtonExtended,
-        builder: (context, extended, _) => AnimatedSize(
-          alignment: AlignmentDirectional.centerEnd,
+        builder: (context, extended, _) => TweenAnimationBuilder<double>(
+          tween: Tween<double>(
+            begin: extended ? 1 : 0,
+            end: extended ? 1 : 0,
+          ),
           duration: MediaQuery.disableAnimationsOf(context)
               ? Duration.zero
               : const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
-          child: FloatingActionButton.extended(
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [SizedBox(width: 8), Text('开始观看')],
+          ),
+          // Animate the label's layout inside the button so its painted
+          // background and hit area follow the same width in both directions.
+          builder: (context, progress, label) => FloatingActionButton.extended(
             tooltip: '开始观看',
             onPressed: _startWatching,
-            isExtended: extended,
             extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
-            label: const Text('开始观看'),
+            extendedIconLabelSpacing: 0,
+            label: progress == 0
+                ? const SizedBox.shrink()
+                : ClipRect(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      widthFactor: progress,
+                      heightFactor: 1,
+                      child: Opacity(opacity: progress, child: label),
+                    ),
+                  ),
             icon: const Icon(Icons.play_arrow_rounded),
           ),
         ),

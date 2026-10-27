@@ -96,12 +96,28 @@ void main() {
       );
       await tester.pumpAndSettle();
       final button = find.byType(FloatingActionButton);
+      final surface = find.descendant(
+        of: button,
+        matching: find.byType(Material),
+      );
       final initialRect = tester.getRect(button);
       expect(find.text('开始观看'), findsOneWidget);
       expect(initialRect.width, greaterThan(initialRect.height));
 
       final start = Offset(size.width / 2, size.height * .7);
       await tester.dragFrom(start, const Offset(0, -350));
+      await tester.pump();
+      var previousWidth = initialRect.width;
+      // Check the painted button, not an outer box that can animate while the
+      // actual background has already snapped to its final width.
+      for (var frame = 0; frame < 3; frame++) {
+        await tester.pump(const Duration(milliseconds: 40));
+        final rect = tester.getRect(surface);
+        expect(rect.width, greaterThan(56));
+        expect(rect.width, lessThan(previousWidth));
+        expect(rect.right, closeTo(initialRect.right, .1));
+        previousWidth = rect.width;
+      }
       await tester.pumpAndSettle();
       final compactRect = tester.getRect(button);
       expect(find.text('开始观看'), findsNothing);
@@ -123,6 +139,16 @@ void main() {
       await tester.tap(find.text('概览'));
       await tester.pumpAndSettle();
       await tester.dragFrom(start, const Offset(0, 1000));
+      await tester.pump();
+      previousWidth = 56;
+      for (var frame = 0; frame < 3; frame++) {
+        await tester.pump(const Duration(milliseconds: 40));
+        final rect = tester.getRect(surface);
+        expect(rect.width, greaterThan(previousWidth));
+        expect(rect.width, lessThan(initialRect.width));
+        expect(rect.right, closeTo(initialRect.right, .1));
+        previousWidth = rect.width;
+      }
       await tester.pumpAndSettle();
       expect(find.text('开始观看'), findsOneWidget);
       expect(tester.getSize(button), initialRect.size);

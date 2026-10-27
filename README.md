@@ -15,7 +15,7 @@
 <p>使用 Flutter 开发的基于自定义规则的番剧采集与在线观看程序。使用最多五行基于 <code>Xpath</code> 语法的选择器构建自己的规则。支持规则导入与规则分享。支持基于 <code>Anime4K</code> 的实时超分辨率。绝赞开发中 (～￣▽￣)～</p>
 </div>
 
-**iOS 改版测试包：** [下载 IPA 与查看安装说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.7)。
+**iOS 改版测试包：** [下载 IPA 与查看安装说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.8)。
 
 本仓库基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 2.4.2，加入原生 Liquid Glass 导航和 iPhone Duo 自适应布局。测试包使用 iOS 27.1 SDK 构建，最低支持 iOS 15；IPA 未签名，需要重新签名后侧载。改动与验证范围见 [适配说明](docs/ios27-liquid-glass.md)。
 
