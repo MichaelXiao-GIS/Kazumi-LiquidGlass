@@ -56,6 +56,8 @@ class _InfoPageState extends State<InfoPage>
   InfoController get infoController => widget.infoController;
   late final TabController infoTabController;
   late final bool showRating;
+  final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<bool> _watchButtonExtended = ValueNotifier(true);
 
   bool commentsIsLoading = false;
   bool charactersIsLoading = false;
@@ -220,6 +222,18 @@ class _InfoPageState extends State<InfoPage>
     infoTabController = TabController(length: _infoTabs.length, vsync: this);
     showRating = GStorage.getSetting(SettingsKeys.showRating);
     infoTabController.addListener(onInfoTabChanged);
+    _scrollController.addListener(_updateWatchButton);
+  }
+
+  void _updateWatchButton() {
+    if (!_scrollController.hasClients) return;
+    final offset = _scrollController.offset;
+    // Different collapse/expand thresholds prevent flicker near the boundary.
+    if (offset >= 64) {
+      _watchButtonExtended.value = false;
+    } else if (offset <= 16) {
+      _watchButtonExtended.value = true;
+    }
   }
 
   void onInfoTabChanged() {
@@ -267,6 +281,8 @@ class _InfoPageState extends State<InfoPage>
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    _watchButtonExtended.dispose();
     infoTabController.removeListener(onInfoTabChanged);
     infoController.characterList.clear();
     infoController.clearComments();
@@ -335,6 +351,7 @@ class _InfoPageState extends State<InfoPage>
     final topOffset = Platform.isMacOS && showWindowButton ? 22.0 : 0.0;
     return Scaffold(
       body: NestedScrollView(
+        controller: _scrollController,
         headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
           return <Widget>[
             SliverOverlapAbsorber(
@@ -468,11 +485,23 @@ class _InfoPageState extends State<InfoPage>
           );
         }),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        tooltip: '开始观看',
-        onPressed: _startWatching,
-        label: const Text('开始观看'),
-        icon: const Icon(Icons.play_arrow_rounded),
+      floatingActionButton: ValueListenableBuilder<bool>(
+        valueListenable: _watchButtonExtended,
+        builder: (context, extended, _) => AnimatedSize(
+          alignment: AlignmentDirectional.centerEnd,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          child: FloatingActionButton.extended(
+            tooltip: '开始观看',
+            onPressed: _startWatching,
+            isExtended: extended,
+            extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
+            label: const Text('开始观看'),
+            icon: const Icon(Icons.play_arrow_rounded),
+          ),
+        ),
       ),
     );
   }
