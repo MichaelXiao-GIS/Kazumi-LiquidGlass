@@ -124,6 +124,7 @@ private final class KazumiGlassView: NSObject, FlutterPlatformView {
         }
         channel.setMethodCallHandler { [weak self] call, result in
             if call.method == "hide" {
+                (self?.content as? KazumiNavigationView)?.cancelScrub()
                 self?.content.isHidden = true
                 self?.content.isUserInteractionEnabled = false
                 self?.content.accessibilityElementsHidden = true
@@ -146,26 +147,43 @@ private final class KazumiGlassView: NSObject, FlutterPlatformView {
 }
 
 private final class KazumiMaterialView: UIVisualEffectView {
-    init(frame: CGRect, interactive: Bool = false) {
+    private var materialEffect: UIVisualEffect?
+
+    init(frame: CGRect, interactive: Bool = false, clear: Bool = false) {
         // The OS owns optical rendering, the iOS 27 transparency slider and
         // accessibility fallbacks. Do not emulate glass with a blur shader.
         if #available(iOS 26.0, *) {
-            let glass = UIGlassEffect(style: .regular)
+            let glass = UIGlassEffect(style: clear ? .clear : .regular)
             glass.isInteractive = interactive
             super.init(effect: glass)
         } else {
             super.init(effect: UIBlurEffect(style: .systemMaterial))
         }
         self.frame = frame
+        materialEffect = effect
         layer.cornerCurve = .continuous
     }
+    func showMaterial(_ visible: Bool) { effect = visible ? materialEffect : nil }
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 }
 
-private final class KazumiNavigationView: UIView {
+final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
     private let material = KazumiMaterialView(frame: .zero, interactive: true)
     private let searchMaterial = KazumiMaterialView(frame: .zero, interactive: true)
     private let selection = UIView()
+    // Glass samples the backdrop only. Icons and labels stay above the lens so
+    // dragging never blurs the controls the user is trying to select.
+    private let lens = KazumiMaterialView(frame: .zero, interactive: true, clear: true)
+    private let tabContent = UIView()
+    private let feedback = UISelectionFeedbackGenerator()
+    private lazy var scrub = UIPanGestureRecognizer(target: self, action: #selector(scrubTabs(_:)))
+    private var dragging = false
+    private var preview: Int?
+    private var dragPoint = CGPoint.zero
+    private var dragSpeed: CGFloat = 0
+    private var lastSize = CGSize.zero
+    private var scrubRevision = 0
+    private var pendingReset: DispatchWorkItem?
     private let search = UIButton(type: .system)
     private var buttons: [KazumiTabControl] = []
     private var vertical = false
@@ -188,21 +206,41 @@ private final class KazumiNavigationView: UIView {
             button.tag = index
             button.addTarget(self, action: #selector(selectTab(_:)), for: .touchUpInside)
             buttons.append(button)
-            material.contentView.addSubview(button)
+            tabContent.addSubview(button)
         }
         search.setImage(UIImage(systemName: "magnifyingglass", withConfiguration:
             UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)), for: .normal)
         search.accessibilityLabel = "搜索番剧"
         search.addTarget(self, action: #selector(searchTapped), for: .touchUpInside)
         searchMaterial.contentView.addSubview(search)
+        lens.isUserInteractionEnabled = false
+        lens.accessibilityIdentifier = "Kazumi.tabScrubLens"
+        lens.accessibilityElementsHidden = true
+        lens.clipsToBounds = true
+        lens.isHidden = true
+        addSubview(lens)
+        tabContent.accessibilityIdentifier = "Kazumi.tabContent"
+        addSubview(tabContent)
+        scrub.delegate = self
+        scrub.maximumNumberOfTouches = 1
+        scrub.cancelsTouchesInView = true
+        tabContent.addGestureRecognizer(scrub)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     func configure(_ config: [String: Any]) {
         let previousSelection = selected
         layoutIfNeeded()
-        vertical = config["vertical"] as? Bool ?? false
+        let nextVertical = config["vertical"] as? Bool ?? false
+        if nextVertical != vertical { cancelScrub() }
+        vertical = nextVertical
         selected = min(3, max(0, config["selectedIndex"] as? Int ?? 0))
+        if !dragging {
+            pendingReset?.cancel()
+            preview = nil
+        } else if selected != previousSelection {
+            cancelScrub()
+        }
         if let argb = config["tint"] as? NSNumber {
             let value = argb.uint32Value
             tintColor = UIColor(red: CGFloat((value >> 16) & 255) / 255,
@@ -221,6 +259,10 @@ private final class KazumiNavigationView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        if lastSize != bounds.size {
+            lastSize = bounds.size
+            cancelScrub()
+        }
         let gap: CGFloat = 10
         let searchExtent: CGFloat = min(56, vertical ? bounds.width : bounds.height)
         if vertical {
@@ -237,24 +279,166 @@ private final class KazumiNavigationView: UIView {
         searchMaterial.layer.cornerRadius = searchExtent / 2
         material.clipsToBounds = true
         searchMaterial.clipsToBounds = true
+        tabContent.frame = material.frame
         search.frame = searchMaterial.bounds
-        let inner = material.bounds.insetBy(dx: 5, dy: 5)
         for (index, button) in buttons.enumerated() {
-            button.frame = vertical
-                ? CGRect(x: inner.minX, y: inner.minY + CGFloat(index) * inner.height / 4,
-                         width: inner.width, height: inner.height / 4)
-                : CGRect(x: inner.minX + CGFloat(index) * inner.width / 4, y: inner.minY,
-                         width: inner.width / 4, height: inner.height)
+            let tile = tabFrame(at: index)
+            // Bounds and center remain stable while the preview is magnified.
+            button.bounds.size = tile.size
+            button.center = CGPoint(x: tile.midX, y: tile.midY)
         }
-        selection.frame = buttons[selected].frame
+        selection.frame = tabFrame(at: preview ?? selected)
         selection.layer.cornerRadius = min(selection.bounds.width, selection.bounds.height) / 2
+        if dragging { positionLens() }
+    }
+
+    private func tabFrame(at index: Int) -> CGRect {
+        let inner = material.bounds.insetBy(dx: 5, dy: 5)
+        return vertical
+            ? CGRect(x: inner.minX, y: inner.minY + CGFloat(index) * inner.height / 4,
+                     width: inner.width, height: inner.height / 4)
+            : CGRect(x: inner.minX + CGFloat(index) * inner.width / 4, y: inner.minY,
+                     width: inner.width / 4, height: inner.height)
     }
 
     private func updateSelection() {
         for (index, button) in buttons.enumerated() {
             button.isSelected = index == selected
-            button.tintColor = index == selected ? tintColor : .secondaryLabel
+            button.tintColor = index == (preview ?? selected) ? tintColor : .secondaryLabel
+            button.transform = dragging && index == preview && !UIAccessibility.isReduceMotionEnabled
+                ? CGAffineTransform(scaleX: 1.08, y: 1.08) : .identity
         }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { cancelScrub() }
+    }
+
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === scrub, !UIAccessibility.isVoiceOverRunning else { return false }
+        let movement = scrub.translation(in: material)
+        return vertical ? abs(movement.y) > abs(movement.x) : abs(movement.x) > abs(movement.y)
+    }
+
+    @objc private func scrubTabs(_ gesture: UIPanGestureRecognizer) {
+        handleScrub(state: gesture.state, at: gesture.location(in: material),
+                    velocity: gesture.velocity(in: material))
+    }
+
+    // Kept separate from UIKit's recognizer so cancellation, layout changes and
+    // route confirmation can also be exercised by native regression tests.
+    func handleScrub(state: UIGestureRecognizer.State, at point: CGPoint, velocity: CGPoint = .zero) {
+        switch state {
+        case .began:
+            pendingReset?.cancel()
+            scrubRevision += 1
+            lens.layer.removeAllAnimations()
+            selection.layer.removeAllAnimations()
+            dragging = true
+            selection.alpha = 0
+            lens.isHidden = false
+            lens.showMaterial(true)
+            feedback.prepare()
+            moveScrub(to: point, velocity: velocity)
+        case .changed:
+            moveScrub(to: point, velocity: velocity)
+        case .ended:
+            finishScrub(commit: material.bounds.contains(point) ? preview : nil)
+        case .cancelled, .failed:
+            finishScrub(commit: nil)
+        default: break
+        }
+    }
+
+    private func moveScrub(to point: CGPoint, velocity: CGPoint) {
+        guard dragging else { return }
+        dragPoint = point
+        dragSpeed = vertical ? abs(velocity.y) : abs(velocity.x)
+        let nearest = buttons.indices.min {
+            let a = buttons[$0].center, b = buttons[$1].center
+            return vertical ? abs(a.y - point.y) < abs(b.y - point.y)
+                            : abs(a.x - point.x) < abs(b.x - point.x)
+        } ?? selected
+        if preview != nearest {
+            preview = nearest
+            feedback.selectionChanged()
+            feedback.prepare()
+        }
+        updateSelection()
+        positionLens()
+    }
+
+    private func positionLens() {
+        let tile = selection.bounds.size
+        let stretch = UIAccessibility.isReduceMotionEnabled ? 0 : min(12, dragSpeed / 160)
+        let width = min(material.bounds.width - 2, tile.width + (vertical ? 6 : 8 + stretch))
+        let height = min(material.bounds.height - 2, tile.height + (vertical ? 8 + stretch : 6))
+        guard width > 0, height > 0 else { return }
+        let center = CGPoint(
+            x: vertical ? material.bounds.midX : min(material.bounds.width - width / 2, max(width / 2, dragPoint.x)),
+            y: vertical ? min(material.bounds.height - height / 2, max(height / 2, dragPoint.y)) : material.bounds.midY)
+        lens.frame = material.convert(CGRect(x: center.x - width / 2, y: center.y - height / 2,
+                                             width: width, height: height), to: self)
+        lens.layer.cornerRadius = min(width, height) / 2
+    }
+
+    private func finishScrub(commit target: Int?) {
+        guard dragging else { return }
+        dragging = false
+        preview = target
+        let revision = scrubRevision
+        let destination = material.convert(tabFrame(at: target ?? selected), to: self)
+        updateSelection()
+        setNeedsLayout()
+        let settle = {
+            self.layoutIfNeeded()
+            self.selection.alpha = 1
+            self.lens.frame = destination
+            self.lens.layer.cornerRadius = min(destination.width, destination.height) / 2
+            self.lens.showMaterial(false)
+        }
+        if UIAccessibility.isReduceMotionEnabled {
+            settle()
+            lens.isHidden = true
+        } else {
+            UIView.animate(withDuration: 0.32, delay: 0, usingSpringWithDamping: 0.78,
+                           initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction],
+                           animations: settle) { [weak self] _ in
+                guard let self, self.scrubRevision == revision else { return }
+                self.lens.isHidden = true
+            }
+        }
+        if let target, target != selected {
+            // Flutter remains the routing authority. Roll back if the route
+            // cannot confirm selection, rather than leaving a false highlight.
+            let reset = DispatchWorkItem { [weak self] in
+                guard let self, self.scrubRevision == revision, !self.dragging else { return }
+                self.preview = nil
+                self.updateSelection()
+                self.setNeedsLayout()
+            }
+            pendingReset = reset
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: reset)
+            onSelect?(target)
+        } else {
+            preview = nil
+        }
+    }
+
+    func cancelScrub() {
+        pendingReset?.cancel()
+        pendingReset = nil
+        scrubRevision += 1
+        dragging = false
+        preview = nil
+        lens.layer.removeAllAnimations()
+        selection.layer.removeAllAnimations()
+        lens.isHidden = true
+        lens.showMaterial(false)
+        selection.alpha = 1
+        updateSelection()
+        setNeedsLayout()
     }
     @objc private func selectTab(_ sender: KazumiTabControl) {
         onSelect?(sender.tag) // Flutter confirms selection after routing succeeds.

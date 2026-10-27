@@ -100,7 +100,7 @@ class _PopularPageState extends State<PopularPage> {
                       height: 400,
                       child: BangumiMirrorErrorWidget(
                         onRetry: () {
-                          if (popularController.trendList.isEmpty) {
+                          if (popularController.currentTag.isEmpty) {
                             popularController.queryBangumiByTrend();
                           } else {
                             popularController.queryBangumiByTag();
@@ -115,11 +115,14 @@ class _PopularPageState extends State<PopularPage> {
                     ),
                   );
                 }
-                return contentGrid(
-                  (popularController.currentTag == '')
+                // Read the observable contents here. SliverLayoutBuilder runs
+                // later, outside this Observer, and cannot subscribe for us.
+                final items = List<BangumiItem>.of(
+                  popularController.currentTag.isEmpty
                       ? popularController.trendList
                       : popularController.bangumiList,
                 );
+                return contentGrid(items);
               },
             ),
           ),

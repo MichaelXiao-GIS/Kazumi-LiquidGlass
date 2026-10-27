@@ -1,0 +1,8 @@
+# Canonical iOS app icon supplied by the owner. Regenerate with:
+# dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: false
+  ios: true
+  image_path_ios: assets/images/logo/logo_ios_opaque.png
+  remove_alpha_ios: true
+  background_color_ios: '#554943'
