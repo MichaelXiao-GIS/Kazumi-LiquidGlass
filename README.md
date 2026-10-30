@@ -62,7 +62,7 @@
 
 ## 下载与安装
 
-当前测试版：**iOS 27.1 测试版 0011** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
+当前测试版：**Kazumi Liquid Glass测试版0011** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
 
 1. 下载 Release 附件中的 `Kazumi_iOS27_unsigned.ipa`。
 2. 使用自己的 Apple 开发者签名或侧载工具重新签名后安装。**IPA 未签名，不能直接点击安装。**
