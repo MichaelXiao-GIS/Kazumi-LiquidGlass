@@ -8,7 +8,7 @@
 <p>Liquid Glass 导航 · iPhone Duo 自适应布局 · 悬浮玻璃播放器</p>
 
 <p>
-  <a href="https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases">下载 iOS 测试版</a> ·
+  <a href="https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.11">下载 iOS 测试版</a> ·
   <a href="docs/ios27-liquid-glass.md">适配与构建说明</a> ·
   <a href="https://github.com/Predidit/Kazumi">上游 Kazumi</a>
 </p>
