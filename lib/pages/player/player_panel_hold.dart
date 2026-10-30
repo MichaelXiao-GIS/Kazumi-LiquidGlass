@@ -126,12 +126,16 @@ class PlayerPanelHoldMenuAnchor extends StatefulWidget {
     required this.onVisibilityChanged,
     required this.builder,
     required this.menuChildren,
+    this.animated = false,
+    this.hideScrollIndicator = false,
   });
 
   final PlayerPanelHold Function() acquirePlayerPanelHold;
   final ValueChanged<bool> onVisibilityChanged;
   final KazumiMenuBuilder builder;
   final List<Widget> menuChildren;
+  final bool animated;
+  final bool hideScrollIndicator;
 
   @override
   State<PlayerPanelHoldMenuAnchor> createState() =>
@@ -168,12 +172,26 @@ class _PlayerPanelHoldMenuAnchorState extends State<PlayerPanelHoldMenuAnchor> {
 
   @override
   Widget build(BuildContext context) {
-    return KazumiMenuButton(
-      animated: false,
+    final menu = KazumiMenuButton(
+      animated: widget.animated,
       onOpen: _handleOpen,
       onClose: _handleClose,
       builder: widget.builder,
       menuChildren: widget.menuChildren,
+    );
+    if (!widget.hideScrollIndicator) return menu;
+    // Flutter's adaptive CupertinoScrollbar ignores ScrollbarTheme and applies
+    // the full window's camera inset inside this already-positioned popup.
+    // Use the themed Material indicator for these touch-scrollable menus only.
+    return Theme(
+      data: Theme.of(context).copyWith(
+        platform: TargetPlatform.android,
+        scrollbarTheme: const ScrollbarThemeData(
+          thickness: WidgetStatePropertyAll(0),
+          trackVisibility: WidgetStatePropertyAll(false),
+        ),
+      ),
+      child: menu,
     );
   }
 }

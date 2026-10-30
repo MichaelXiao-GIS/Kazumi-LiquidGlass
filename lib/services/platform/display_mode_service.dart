@@ -1,8 +1,6 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/services/logging/logger.dart';
-import 'package:kazumi/utils/device.dart';
 import 'package:window_manager/window_manager.dart';
 
 class DisplayModeService {
@@ -16,15 +14,19 @@ class DisplayModeService {
 
   static Future<void> applyVideoFullscreen(bool fullscreen) {
     return _pendingFullscreen = _pendingFullscreen.then((_) async {
-      if (isDesktop()) {
+      if (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux) {
         await _attempt(() => windowManager.setFullScreen(fullscreen));
         return;
       }
 
+      // An explicit fullscreen action must request landscape on iOS too,
+      // without waiting for a physical rotation or auto-rotate to be enabled.
       // Restore system orientation on exit, including an existing landscape.
       await _attempt(
         () => SystemChrome.setPreferredOrientations(
-          fullscreen && !Platform.isIOS
+          fullscreen
               ? [
                   DeviceOrientation.landscapeLeft,
                   DeviceOrientation.landscapeRight,
@@ -62,9 +64,9 @@ class DisplayModeService {
     request = (_pendingSystemBars ?? Future<void>.value())
         .then(
           (_) => _attempt(() async {
-            if (Platform.isAndroid) {
+            if (defaultTargetPlatform == TargetPlatform.android) {
               await _intentChannel.invokeMethod('setSystemBarsHidden', hidden);
-            } else if (Platform.isIOS) {
+            } else if (defaultTargetPlatform == TargetPlatform.iOS) {
               await SystemChrome.setEnabledSystemUIMode(
                 hidden ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
               );

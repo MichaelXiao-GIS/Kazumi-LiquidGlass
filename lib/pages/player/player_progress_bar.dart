@@ -30,12 +30,14 @@ class PlayerProgressBar extends StatefulWidget {
     required this.onDragUpdate,
     required this.onDragEnd,
     required this.onSeek,
+    this.minHeight = 16,
   });
 
   final Duration progress;
   final Duration buffered;
   final Duration total;
   final bool sideLabels;
+  final double minHeight;
   final VoidCallback onDragStart;
   final ValueChanged<Duration> onDragUpdate;
   final void Function(bool cancelled) onDragEnd;
@@ -141,7 +143,8 @@ class _PlayerProgressBarState extends State<PlayerProgressBar> {
         ? _measureLabel(durationToString(widget.total), textScaler)
         : null;
     final inset = labelSize == null ? 0.0 : labelSize.width + _labelGap;
-    final height = math.max(2 * _thumbRadius, labelSize?.height ?? 0);
+    final height = math.max(widget.minHeight,
+        math.max(2 * _thumbRadius, labelSize?.height ?? 0));
     final dragFraction = _dragFraction;
     final current = dragFraction ?? _fractionOf(widget.progress);
     final position =

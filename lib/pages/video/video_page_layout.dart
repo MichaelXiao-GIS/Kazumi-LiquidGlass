@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
+import 'package:kazumi/pages/video/video_viewport_geometry.dart';
 
 typedef VideoPlayerLayout = ({bool fillsWindow, bool hasSidePanel});
 
@@ -31,6 +32,7 @@ class VideoPageLayout extends StatelessWidget {
       final size = box.biggest;
       final padding = MediaQuery.paddingOf(context);
       final scene = IosSceneEnvironment.of(context);
+      final ios = Theme.of(context).platform == TargetPlatform.iOS;
       final divisions = <Rect>[
         if (scene.matches(size)) ...scene.divisions,
         for (final feature in MediaQuery.displayFeaturesOf(context))
@@ -89,12 +91,12 @@ class VideoPageLayout extends StatelessWidget {
         final playerSize = applyBoxFit(
           BoxFit.contain,
           const Size(16, 9),
-          Size(safe.width, availableHeight),
+          Size(ios ? size.width : safe.width, availableHeight),
         ).destination;
         playerRect = Rect.fromLTWH(
-          safe.left + (safe.width - playerSize.width) / 2,
+          ios ? 0 : safe.left + (safe.width - playerSize.width) / 2,
           safe.top,
-          playerSize.width,
+          ios ? size.width : playerSize.width,
           playerSize.height,
         );
         tabsRect = Rect.fromLTRB(0, playerRect.bottom, size.width, size.height);
@@ -114,6 +116,13 @@ class VideoPageLayout extends StatelessWidget {
         math.max(0, rect.right - safe.right),
         math.max(0, rect.bottom - safe.bottom),
       );
+      VideoViewportGeometry geometryFor(Rect rect) =>
+          VideoViewportGeometry.fromScene(
+            pane: rect,
+            window: size,
+            padding: padding,
+            scene: scene,
+          );
       // Positions change, not widget ancestry. Folding must not dispose playback
       // or reset the active episode, tabs, focus and player control state.
       final panelAtStatusArea =
@@ -137,11 +146,14 @@ class VideoPageLayout extends StatelessWidget {
                     padding: insetsFor(playerRect),
                     viewPadding: insetsFor(playerRect),
                   ),
-                  child: Builder(
-                    builder: (context) => playerBuilder(context, (
-                      fillsWindow: fillsWindow,
-                      hasSidePanel: hasSidePanel,
-                    )),
+                  child: VideoViewportScope(
+                    geometry: geometryFor(playerRect),
+                    child: Builder(
+                      builder: (context) => playerBuilder(context, (
+                        fillsWindow: fillsWindow,
+                        hasSidePanel: hasSidePanel,
+                      )),
+                    ),
                   ),
                 ),
               ),
@@ -156,7 +168,9 @@ class VideoPageLayout extends StatelessWidget {
                     : ColoredBox(
                         color: Theme.of(context).colorScheme.surface,
                         child: Padding(
-                          padding: insetsFor(tabsRect),
+                          padding: ios
+                              ? geometryFor(tabsRect).contentPadding
+                              : insetsFor(tabsRect),
                           child: MediaQuery.removePadding(
                             context: context,
                             removeTop: true,

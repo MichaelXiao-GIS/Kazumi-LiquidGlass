@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:kazumi/navigation.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
@@ -81,7 +82,8 @@ class _VideoSystemBarsState extends State<VideoSystemBars> with RouteAware {
       unawaited(
         DisplayModeService.setSystemBarsHidden(
           owner: this,
-          hidden: widget.fullscreen || fillsWindow,
+          hidden: defaultTargetPlatform == TargetPlatform.iOS ||
+              widget.fullscreen || fillsWindow,
         ),
       );
     }
