@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/settings/settings_detail_scaffold.dart';
 import 'package:kazumi/services/storage/storage.dart';
@@ -90,7 +91,7 @@ class _ProxyEditorPageState extends State<ProxyEditorPage> {
     return SettingsDetailScaffold(
       title: const Text('代理配置'),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: settingsScrollPadding(context, const EdgeInsets.all(16)),
         child: Center(
           child: SizedBox(
             width: (MediaQuery.of(context).size.width > 800) ? 800 : null,

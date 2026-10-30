@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
@@ -221,6 +222,7 @@ class _PluginViewPageState extends State<PluginViewPage> {
           ],
           body: SafeArea(
             top: false,
+        bottom: Theme.of(context).platform != TargetPlatform.iOS,
             child: Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
@@ -245,7 +247,8 @@ class _PluginViewPageState extends State<PluginViewPage> {
                   final canReorder =
                       query.isEmpty && !_updatesOnly && !_selecting;
                   return ReorderableListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    padding: settingsScrollPadding(context,
+              const EdgeInsets.fromLTRB(16, 12, 16, 24)),
                     buildDefaultDragHandles: false,
                     proxyDecorator: (child, index, animation) => Material(
                         elevation: 0, color: Colors.transparent, child: child),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/settings/settings_detail_scaffold.dart';
@@ -160,8 +161,10 @@ class _PluginTestPageState extends State<PluginTestPage> {
       ],
       body: SafeArea(
         top: false,
+        bottom: Theme.of(context).platform != TargetPlatform.iOS,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          padding: settingsScrollPadding(context,
+              const EdgeInsets.fromLTRB(16, 12, 16, 32)),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 900),

@@ -12,6 +12,7 @@ class PluginShopPage extends StatelessWidget {
         title: const Text('规则仓库'),
         body: SafeArea(
           top: false,
+          bottom: Theme.of(context).platform != TargetPlatform.iOS,
           child: Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(

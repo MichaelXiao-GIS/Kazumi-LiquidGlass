@@ -72,11 +72,13 @@ class IosGlassNavigation extends StatefulWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.onSearch,
+    this.onScrollToTop,
   });
   final bool vertical;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final VoidCallback onSearch;
+  final VoidCallback? onScrollToTop;
 
   @override
   State<IosGlassNavigation> createState() => _IosGlassNavigationState();
@@ -87,6 +89,7 @@ class _IosGlassNavigationState extends State<IosGlassNavigation> {
   Map<String, Object> get _configuration => {
     'kind': 'navigation',
     'vertical': widget.vertical,
+    'scrollToTop': widget.vertical && widget.onScrollToTop != null,
     'selectedIndex': widget.selectedIndex,
     'dark': Theme.of(context).brightness == Brightness.dark,
     'tint': Theme.of(context).colorScheme.primary.toARGB32(),
@@ -132,6 +135,8 @@ class _IosGlassNavigationState extends State<IosGlassNavigation> {
               if (index >= 0 && index < iosNavigationLabels.length) {
                 widget.onSelected(index);
               }
+            } else if (call.method == 'scrollToTop') {
+              widget.onScrollToTop?.call();
             } else if (call.method == 'search') {
               widget.onSearch();
             }
@@ -173,6 +178,12 @@ class _IosGlassNavigationState extends State<IosGlassNavigation> {
         onPressed: widget.onSearch,
         icon: const Icon(CupertinoIcons.search),
       ),
+      if (widget.vertical && widget.onScrollToTop != null)
+        IconButton(
+          tooltip: '返回顶部',
+          onPressed: widget.onScrollToTop,
+          icon: const Icon(CupertinoIcons.arrow_up),
+        ),
     ];
     return IosGlassSurface(
       radius: 32,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:kazumi/bean/card/rule_card.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
@@ -283,7 +284,8 @@ class _PluginCatalogViewState extends State<PluginCatalogView> {
           SliverPadding(
             padding: widget._onboarding
                 ? EdgeInsets.zero
-                : const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                : settingsScrollPadding(context,
+                    const EdgeInsets.fromLTRB(16, 12, 16, 24)),
             sliver: SliverMainAxisGroup(slivers: [
               SliverToBoxAdapter(
                   child: _header(catalog.length, installed, updates)),

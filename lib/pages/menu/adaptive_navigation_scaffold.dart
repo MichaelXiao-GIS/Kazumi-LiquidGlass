@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'package:kazumi/pages/menu/navigation_scroll_to_top.dart';
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
 import 'package:kazumi/bean/widget/ios_glass.dart';
@@ -9,7 +10,7 @@ import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
 
 /// The outlet occupies one stable tree position through every fold/resize.
-class AdaptiveNavigationScaffold extends StatelessWidget {
+class AdaptiveNavigationScaffold extends StatefulWidget {
   const AdaptiveNavigationScaffold({
     super.key,
     required this.child,
@@ -21,6 +22,21 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final VoidCallback onSearch;
+
+  @override
+  State<AdaptiveNavigationScaffold> createState() =>
+      _AdaptiveNavigationScaffoldState();
+}
+
+class _AdaptiveNavigationScaffoldState
+    extends State<AdaptiveNavigationScaffold> {
+  final _scrollToTop = NavigationScrollToTopController();
+
+  @override
+  void dispose() {
+    _scrollToTop.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -55,10 +71,19 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
               (value, rect) => math.max(value, rect.bottom),
             )
           : media.padding.top;
-      final verticalExtent = itemHeight * 4 + 68;
+      final baseVerticalExtent = itemHeight * 4 + 68;
       final vertical =
           (AdaptiveLayout.useSideNavigation(size) || belowSystemRegion) &&
-          size.height - sideTop - media.padding.bottom >= verticalExtent + 24;
+          size.height - sideTop - media.padding.bottom >=
+              baseVerticalExtent + 24;
+      final integratedScrollToTop =
+          ios &&
+          vertical &&
+          widget.selectedIndex == 0 &&
+          size.height - sideTop - media.padding.bottom >=
+              baseVerticalExtent + 68 + 24;
+      final verticalExtent =
+          baseVerticalExtent + (integratedScrollToTop ? 68 : 0);
       const railWidth = 80.0;
       final bottomInset = media.viewInsets.bottom > 0
           ? 0.0
@@ -121,7 +146,14 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
             Positioned.fill(
               child: Padding(
                 padding: layoutInsets,
-                child: MediaQuery(data: contentMedia, child: child),
+                child: MediaQuery(
+                  data: contentMedia,
+                  child: NavigationScrollToTop(
+                    controller: _scrollToTop,
+                    inNavigation: integratedScrollToTop,
+                    child: widget.child,
+                  ),
+                ),
               ),
             ),
             if (ios && scrollBottomInset > 0 && media.viewInsets.bottom == 0)
@@ -164,9 +196,12 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
                 child: ios
                     ? IosGlassNavigation(
                         vertical: vertical,
-                        selectedIndex: selectedIndex,
-                        onSelected: onSelected,
-                        onSearch: onSearch,
+                        selectedIndex: widget.selectedIndex,
+                        onSelected: widget.onSelected,
+                        onSearch: widget.onSearch,
+                        onScrollToTop: integratedScrollToTop
+                            ? _scrollToTop.scrollToTop
+                            : null,
                       )
                     : _materialNavigation(context, vertical),
               ),
@@ -179,8 +214,8 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
   Widget _materialNavigation(BuildContext context, bool vertical) {
     if (!vertical) {
       return NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onSelected,
+        selectedIndex: widget.selectedIndex,
+        onDestinationSelected: widget.onSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -208,11 +243,11 @@ class AdaptiveNavigationScaffold extends StatelessWidget {
     return EmbeddedNativeControlArea(
       child: NavigationRail(
         minWidth: 64,
-        selectedIndex: selectedIndex,
-        onDestinationSelected: onSelected,
+        selectedIndex: widget.selectedIndex,
+        onDestinationSelected: widget.onSelected,
         leading: IconButton(
           tooltip: '搜索',
-          onPressed: onSearch,
+          onPressed: widget.onSearch,
           icon: const Icon(Icons.search),
         ),
         labelType: NavigationRailLabelType.selected,

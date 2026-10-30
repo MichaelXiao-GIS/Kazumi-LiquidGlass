@@ -121,6 +121,7 @@ private final class KazumiGlassView: NSObject, FlutterPlatformView {
         if let navigation = content as? KazumiNavigationView {
             navigation.onSelect = { [weak self] index in self?.channel.invokeMethod("select", arguments: index) }
             navigation.onSearch = { [weak self] in self?.channel.invokeMethod("search", arguments: nil) }
+            navigation.onScrollToTop = { [weak self] in self?.channel.invokeMethod("scrollToTop", arguments: nil) }
         }
         channel.setMethodCallHandler { [weak self] call, result in
             if call.method == "hide" {
@@ -170,6 +171,9 @@ private final class KazumiMaterialView: UIVisualEffectView {
 final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
     private let material = KazumiMaterialView(frame: .zero, interactive: true)
     private let searchMaterial = KazumiMaterialView(frame: .zero, interactive: true)
+    private let scrollTopMaterial = KazumiMaterialView(frame: .zero, interactive: true)
+    private let scrollTop = UIButton(type: .system)
+    private var showsScrollTop = false
     private let selection = UIView()
     // Glass samples the backdrop only. Icons and labels stay above the lens so
     // dragging never blurs the controls the user is trying to select.
@@ -190,12 +194,14 @@ final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
     private var selected = 0
     var onSelect: ((Int) -> Void)?
     var onSearch: (() -> Void)?
+    var onScrollToTop: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
         addSubview(material)
         addSubview(searchMaterial)
+        addSubview(scrollTopMaterial)
         selection.backgroundColor = UIColor.secondaryLabel.withAlphaComponent(0.12)
         selection.layer.cornerCurve = .continuous
         material.contentView.addSubview(selection)
@@ -213,6 +219,12 @@ final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
         search.accessibilityLabel = "搜索番剧"
         search.addTarget(self, action: #selector(searchTapped), for: .touchUpInside)
         searchMaterial.contentView.addSubview(search)
+        scrollTop.setImage(UIImage(systemName: "arrow.up", withConfiguration:
+            UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)), for: .normal)
+        scrollTop.accessibilityLabel = "返回顶部"
+        scrollTop.accessibilityHint = "滚动推荐列表到最上方"
+        scrollTop.addTarget(self, action: #selector(scrollTopTapped), for: .touchUpInside)
+        scrollTopMaterial.contentView.addSubview(scrollTop)
         lens.isUserInteractionEnabled = false
         lens.accessibilityIdentifier = "Kazumi.tabScrubLens"
         lens.accessibilityElementsHidden = true
@@ -234,6 +246,10 @@ final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
         let nextVertical = config["vertical"] as? Bool ?? false
         if nextVertical != vertical { cancelScrub() }
         vertical = nextVertical
+        showsScrollTop = vertical && (config["scrollToTop"] as? Bool ?? false)
+        scrollTopMaterial.isHidden = !showsScrollTop
+        scrollTopMaterial.accessibilityElementsHidden = !showsScrollTop
+        scrollTopMaterial.showMaterial(showsScrollTop)
         selected = min(3, max(0, config["selectedIndex"] as? Int ?? 0))
         if !dragging {
             pendingReset?.cancel()
@@ -265,10 +281,13 @@ final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
         }
         let gap: CGFloat = 10
         let searchExtent: CGFloat = min(56, vertical ? bounds.width : bounds.height)
+        let scrollTopSpace: CGFloat = showsScrollTop ? 68 : 0
         if vertical {
             material.frame = CGRect(x: 0, y: 0, width: bounds.width,
-                                    height: max(0, bounds.height - searchExtent - gap))
+                                    height: max(0, bounds.height - searchExtent - gap - scrollTopSpace))
             searchMaterial.frame = CGRect(x: (bounds.width - searchExtent) / 2,
+                y: bounds.height - searchExtent - scrollTopSpace, width: searchExtent, height: searchExtent)
+            scrollTopMaterial.frame = CGRect(x: (bounds.width - searchExtent) / 2,
                 y: bounds.height - searchExtent, width: searchExtent, height: searchExtent)
         } else {
             material.frame = CGRect(x: 0, y: 0, width: max(0, bounds.width - searchExtent - gap), height: bounds.height)
@@ -281,6 +300,9 @@ final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
         searchMaterial.clipsToBounds = true
         tabContent.frame = material.frame
         search.frame = searchMaterial.bounds
+        scrollTopMaterial.layer.cornerRadius = searchExtent / 2
+        scrollTopMaterial.clipsToBounds = true
+        scrollTop.frame = scrollTopMaterial.bounds
         for (index, button) in buttons.enumerated() {
             let tile = tabFrame(at: index)
             // Bounds and center remain stable while the preview is magnified.
@@ -444,6 +466,7 @@ final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
         onSelect?(sender.tag) // Flutter confirms selection after routing succeeds.
     }
     @objc private func searchTapped() { onSearch?() }
+    @objc private func scrollTopTapped() { onScrollToTop?() }
 }
 
 private final class KazumiTabControl: UIControl {

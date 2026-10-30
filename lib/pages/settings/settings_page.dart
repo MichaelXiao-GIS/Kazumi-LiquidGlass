@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
@@ -233,6 +234,7 @@ class _SettingsPageState extends State<SettingsPage> {
               : null,
           body: SafeArea(
             top: false,
+            bottom: Theme.of(context).platform != TargetPlatform.iOS,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -312,12 +314,12 @@ class _SettingsMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScrollConfiguration(
+    return SettingsScrollEdge(child: ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
       child: ListView(
-        padding: wide
+        padding: settingsScrollPadding(context, wide
             ? const EdgeInsets.fromLTRB(4, 0, 0, 12)
-            : const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            : const EdgeInsets.fromLTRB(16, 8, 16, 24)),
         children: [
           for (final group in _settingsGroups)
             if (wide) ...[
@@ -349,7 +351,7 @@ class _SettingsMenu extends StatelessWidget {
               ),
         ],
       ),
-    );
+    ));
   }
 }
 

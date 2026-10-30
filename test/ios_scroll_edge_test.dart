@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/bean/card/bangumi_card.dart';
 import 'package:kazumi/bean/widget/ios_bottom_scrim.dart';
+import 'package:kazumi/bean/widget/ios_glass.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/pages/menu/adaptive_navigation_scaffold.dart';
 import 'package:kazumi/pages/popular/popular_controller.dart';
@@ -238,10 +239,31 @@ void main() {
         lessThanOrEqualTo(size.height - bottomInset),
       );
       expect(find.text('番组47'), findsOneWidget);
-      expect(
-        tester.getRect(find.byType(FloatingActionButton)).bottom,
-        lessThanOrEqualTo(size.height - bottomInset),
-      );
+      final navigation = find.byType(IosGlassNavigation);
+      final backToTop = find.byTooltip('返回顶部');
+      if (size.width > 600) {
+        expect(find.byType(FloatingActionButton), findsNothing);
+        expect(
+          find.descendant(of: navigation, matching: backToTop),
+          findsOneWidget,
+        );
+      } else {
+        expect(find.byType(FloatingActionButton), findsOneWidget);
+      }
+      await tester.tap(backToTop);
+      await tester.pumpAndSettle();
+      expect(scrollable.position.pixels, 0);
+      // Folding must keep this page's scroll state and move the same action.
+      scrollable.position.jumpTo(200);
+      tester.view.physicalSize = size.width > 600
+          ? const Size(390, 844)
+          : const Size(900, 650);
+      await tester.pumpAndSettle();
+      expect(scrollable.position.pixels, 200);
+      expect(find.byTooltip('返回顶部'), findsOneWidget);
+      await tester.tap(find.byTooltip('返回顶部'));
+      await tester.pumpAndSettle();
+      expect(scrollable.position.pixels, 0);
       expect(tester.takeException(), isNull);
     });
   }

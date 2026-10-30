@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 
 import 'package:kazumi/bean/widget/state_presentation.dart';
 
@@ -11,8 +12,10 @@ class SyncPageBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SafeArea(
         top: false,
+        bottom: Theme.of(context).platform != TargetPlatform.iOS,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          padding: settingsScrollPadding(context,
+              const EdgeInsets.fromLTRB(20, 12, 20, 32)),
           child: Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),

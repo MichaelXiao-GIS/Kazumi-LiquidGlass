@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 
 class SettingsPaneScope extends InheritedWidget {
   const SettingsPaneScope({
@@ -82,7 +83,10 @@ class SettingsDetailScaffold extends StatelessWidget {
     // Keep routed panes opaque during transitions.
     return Scaffold(
       appBar: appBar,
-      body: body,
+      body: SettingsScrollEdge(
+        enabled: bottomNavigationBar == null,
+        child: body,
+      ),
       floatingActionButton: floatingActionButton,
       bottomNavigationBar: bottomNavigationBar,
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:flutter/services.dart';
 
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
@@ -236,7 +237,7 @@ class _KeyboardSettingsPageState extends State<KeyboardSettingsPage> {
             return handled ? KeyEventResult.handled : KeyEventResult.ignored;
           },
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: settingsScrollPadding(context, const EdgeInsets.all(16)),
             children: [
               Center(
                 child: ConstrainedBox(

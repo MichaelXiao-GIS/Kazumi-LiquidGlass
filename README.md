@@ -30,7 +30,7 @@
 
 ## 界面预览
 
-以下为 **test.9** 在 iPhone Duo / iOS 27.1 模拟器中的实际运行画面，分别展示外屏、内屏和播放布局。截图中的海报与视频仅用于展示界面，版权归各自权利人所有。
+以下为本适配版在 iPhone Duo / iOS 27.1 模拟器中的实际运行画面，分别展示外屏、内屏和播放布局。截图中的海报与视频仅用于展示界面，版权归各自权利人所有。
 
 <table>
   <tr>
@@ -39,15 +39,15 @@
     <th width="33%">分组设置</th>
   </tr>
   <tr>
-    <td><img src="static/screenshot/home-outer.png" alt="test.9 外屏推荐页与玻璃侧栏" width="100%"></td>
+    <td><img src="static/screenshot/home-outer.png" alt="test.10 外屏推荐页与玻璃侧栏" width="100%"></td>
     <td><img src="static/screenshot/details-outer.png" alt="test.9 番剧详情与开始观看按钮" width="100%"></td>
-    <td><img src="static/screenshot/settings-outer.png" alt="test.9 分组设置页" width="100%"></td>
+    <td><img src="static/screenshot/settings-outer.png" alt="test.10 分组设置页" width="100%"></td>
   </tr>
 </table>
 
 **展开内屏 · 自适应内容与侧栏**
 
-<img src="static/screenshot/home-inner.png" alt="test.9 展开内屏的推荐页" width="100%">
+<img src="static/screenshot/home-inner.png" alt="test.10 展开内屏的推荐页" width="100%">
 
 <table>
   <tr>
@@ -62,7 +62,7 @@
 
 ## 下载与安装
 
-当前测试版：[**iOS 27.1 test.9**](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.9) · [全部版本与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
+当前测试版：[**iOS 27.1 test.10**](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.10) · [全部版本与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
 
 1. 下载 Release 附件中的 `Kazumi_iOS27_unsigned.ipa`。
 2. 使用自己的 Apple 开发者签名或侧载工具重新签名后安装。**IPA 未签名，不能直接点击安装。**

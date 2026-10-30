@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -27,8 +28,10 @@ class AboutContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SafeArea(
         top: false,
+        bottom: Theme.of(context).platform != TargetPlatform.iOS,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          padding: settingsScrollPadding(context,
+              const EdgeInsets.fromLTRB(16, 12, 16, 32)),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 880),

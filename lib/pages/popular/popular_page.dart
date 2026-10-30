@@ -1,3 +1,4 @@
+import 'package:kazumi/pages/menu/navigation_scroll_to_top.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -28,6 +29,7 @@ class PopularPage extends StatefulWidget {
 
 class _PopularPageState extends State<PopularPage> {
   late final ScrollController scrollController;
+  NavigationScrollToTopController? _navigationScroll;
   PopularController get popularController => widget.controller;
 
   @override
@@ -43,7 +45,32 @@ class _PopularPageState extends State<PopularPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = NavigationScrollToTop.of(context)?.controller;
+    if (controller != _navigationScroll) {
+      _navigationScroll?.removeListener(_scrollToTop);
+      _navigationScroll = controller;
+      _navigationScroll?.addListener(_scrollToTop);
+    }
+  }
+
+  void _scrollToTop() {
+    if (!scrollController.hasClients) return;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      scrollController.jumpTo(0);
+    } else {
+      scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  @override
   void dispose() {
+    _navigationScroll?.removeListener(_scrollToTop);
     scrollController.removeListener(scrollListener);
     scrollController.dispose();
     super.dispose();
@@ -128,17 +155,14 @@ class _PopularPageState extends State<PopularPage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => scrollController.animateTo(
-          0,
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 350),
-          curve: Curves.easeOut,
-        ),
-        tooltip: '返回顶部',
-        child: const Icon(Icons.arrow_upward),
-      ),
+      floatingActionButton:
+          NavigationScrollToTop.of(context)?.inNavigation == true
+          ? null
+          : FloatingActionButton(
+              onPressed: _scrollToTop,
+              tooltip: '返回顶部',
+              child: const Icon(Icons.arrow_upward),
+            ),
     );
   }
 
