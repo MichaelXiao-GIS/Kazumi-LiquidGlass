@@ -8,7 +8,7 @@
 <p>Liquid Glass 导航 · iPhone Duo 自适应布局 · 悬浮玻璃播放器</p>
 
 <p>
-  <a href="https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.11">下载 iOS 测试版</a> ·
+  <a href="https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases">下载 iOS 测试版</a> ·
   <a href="docs/ios27-liquid-glass.md">适配与构建说明</a> ·
   <a href="https://github.com/Predidit/Kazumi">上游 Kazumi</a>
 </p>
@@ -39,15 +39,15 @@
     <th width="33%">分组设置</th>
   </tr>
   <tr>
-    <td><img src="static/screenshot/home-outer.png" alt="test.11 外屏推荐页与玻璃侧栏" width="100%"></td>
-    <td><img src="static/screenshot/details-outer.png" alt="test.9 番剧详情与开始观看按钮" width="100%"></td>
-    <td><img src="static/screenshot/settings-outer.png" alt="test.10 分组设置页" width="100%"></td>
+    <td><img src="static/screenshot/home-outer.png" alt="测试版 0011 外屏推荐页与玻璃侧栏" width="100%"></td>
+    <td><img src="static/screenshot/details-outer.png" alt="测试版 0009 番剧详情与开始观看按钮" width="100%"></td>
+    <td><img src="static/screenshot/settings-outer.png" alt="测试版 0010 分组设置页" width="100%"></td>
   </tr>
 </table>
 
 **展开内屏 · 自适应内容与侧栏**
 
-<img src="static/screenshot/home-inner.png" alt="test.11 展开内屏的推荐页" width="100%">
+<img src="static/screenshot/home-inner.png" alt="测试版 0011 展开内屏的推荐页" width="100%">
 
 <table>
   <tr>
@@ -55,14 +55,14 @@
     <th width="50%">横屏全屏与悬浮玻璃控件</th>
   </tr>
   <tr>
-    <td><img src="static/screenshot/player-split.png" alt="test.9 左侧视频、右侧选集的播放布局" width="100%"></td>
-    <td><img src="static/screenshot/player-fullscreen.png" alt="test.9 全屏播放器，右上选集与底部玻璃控制条" width="100%"></td>
+    <td><img src="static/screenshot/player-split.png" alt="测试版 0009 左侧视频、右侧选集的播放布局" width="100%"></td>
+    <td><img src="static/screenshot/player-fullscreen.png" alt="测试版 0009 全屏播放器，右上选集与底部玻璃控制条" width="100%"></td>
   </tr>
 </table>
 
 ## 下载与安装
 
-当前测试版：[**iOS 27.1 test.11**](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases/tag/v2.4.2-ios27.1-test.11) · [全部版本与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
+当前测试版：**iOS 27.1 测试版 0011** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
 
 1. 下载 Release 附件中的 `Kazumi_iOS27_unsigned.ipa`。
 2. 使用自己的 Apple 开发者签名或侧载工具重新签名后安装。**IPA 未签名，不能直接点击安装。**

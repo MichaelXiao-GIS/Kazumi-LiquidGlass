@@ -50,6 +50,16 @@ dart run flutter_launcher_icons
 
 GitHub 的 iOS 构建会先检查 SDK；运行器必须安装并选择 Xcode 27.1+。如果系统有多个 Xcode，可以设置 `DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer`。
 
+## 测试版发布命名
+
+- Release 标题：`iOS 27.1 测试版 0011 · 侧栏中轴对齐`。
+- Git 标签：`v2.4.2-ios27.1-test.r0011`。修订号固定四位，后续依次使用 `r0012`、`r0013`，不要再使用 `test.12`。
+- 字母前缀 `r` 与补零编号构成非纯数字的预发布标识，既保持版本格式有效，也让 GitHub 同日版本的字典序与修订号顺序一致。
+- 本地构建的测试包继续匹配工作流中的 `!*-ios27.1-test.*` 排除规则，避免上传时重建所有平台。
+- Release 说明仅保留功能改动、构建产物和安装注意事项；仓库首页下载入口始终指向 [Releases 列表](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)。
+
+2026-10-30 已将测试版 0001–0011 统一到上述格式。所有 Release 及附件沿用原记录、源码提交和文件；旧 `test.1`–`test.11` Git 标签保留用于源码追溯，Release 页面及附件下载请使用新标签下的链接。旧构建附件中的版本标记是原始构建记录，无需重新打包。
+
 ## 验证范围
 
 自动化布局测试位于 `test/adaptive_layout_test.dart`，覆盖窄屏/宽屏/矮窗口、字号放大、不对称安全区域、折叠时路由和播放器状态保留、双栏、水平/竖直折叠分区及弹出面板避让、顶栏全宽及深浅色像素连续性。
