@@ -63,10 +63,17 @@ class _AdaptiveNavigationScaffoldState
             )
           : const <Rect>[];
       final belowSystemRegion = ios && (trailing || leadingRegions.isNotEmpty);
+      final systemRegions = trailing ? sideRegions : leadingRegions;
+      final systemCenter = belowSystemRegion
+          ? AdaptiveLayout.systemNavigationAxis(
+              systemRegions,
+              trailing: trailing,
+            )
+          : null;
       final itemHeight = media.textScaler.scale(58).clamp(58.0, 80.0);
       final barHeight = media.textScaler.scale(64).clamp(64.0, 88.0);
       final sideTop = belowSystemRegion
-          ? (trailing ? sideRegions : leadingRegions).fold(
+          ? systemRegions.fold(
               media.padding.top,
               (value, rect) => math.max(value, rect.bottom),
             )
@@ -84,7 +91,18 @@ class _AdaptiveNavigationScaffoldState
               baseVerticalExtent + 68 + 24;
       final verticalExtent =
           baseVerticalExtent + (integratedScrollToTop ? 68 : 0);
-      const railWidth = 80.0;
+      const railWidth = 64.0;
+      const railGap = 8.0;
+      // UIKit's status/camera column has its own center, which need not be
+      // 40 points from the screen edge. Align every navigation control to it.
+      final railLeft = systemCenter != null
+          ? (systemCenter - railWidth / 2)
+                .clamp(
+                  railGap,
+                  math.max(railGap, size.width - railWidth - railGap),
+                )
+                .toDouble()
+          : media.padding.left + railGap;
       final bottomInset = media.viewInsets.bottom > 0
           ? 0.0
           : (ios
@@ -92,12 +110,10 @@ class _AdaptiveNavigationScaffoldState
                 : 80 + media.padding.bottom);
       final contentInsets = EdgeInsets.only(
         left: vertical && !trailing
-            ? (belowSystemRegion
-                  ? math.max(railWidth, media.padding.left)
-                  : railWidth + media.padding.left)
+            ? math.max(media.padding.left, railLeft + railWidth + railGap)
             : media.padding.left,
         right: vertical && trailing
-            ? math.max(railWidth, media.padding.right)
+            ? math.max(media.padding.right, size.width - railLeft + railGap)
             : media.padding.right,
         bottom: vertical ? media.padding.bottom : bottomInset,
       );
@@ -169,14 +185,8 @@ class _AdaptiveNavigationScaffoldState
             if (media.viewInsets.bottom == 0 &&
                 (!ios || RouteVisibility.nativeControlsVisibleOf(context)))
               Positioned(
-                left: vertical
-                    ? (trailing
-                          ? null
-                          : (belowSystemRegion ? 8 : media.padding.left + 8))
-                    : media.padding.left + (ios ? 16 : 0),
-                right: vertical
-                    ? (trailing ? 8 : null)
-                    : media.padding.right + (ios ? 16 : 0),
+                left: vertical ? railLeft : media.padding.left + (ios ? 16 : 0),
+                right: vertical ? null : media.padding.right + (ios ? 16 : 0),
                 top: vertical
                     ? sideTop +
                           (belowSystemRegion
@@ -191,7 +201,7 @@ class _AdaptiveNavigationScaffoldState
                                 ))
                     : null,
                 bottom: vertical ? null : media.padding.bottom + (ios ? 10 : 0),
-                width: vertical ? 64 : null,
+                width: vertical ? railWidth : null,
                 height: vertical ? verticalExtent : (ios ? barHeight : 80),
                 child: ios
                     ? IosGlassNavigation(

@@ -7,6 +7,25 @@ abstract final class AdaptiveLayout {
       size.height >= 400 &&
       (size.width >= 600 || (size.height < 500 && size.width >= 480));
 
+  /// Align to the camera, not the union of camera and status avoidance bounds.
+  static double systemNavigationAxis(
+    Iterable<Rect> regions, {
+    required bool trailing,
+  }) {
+    final bounds = regions.reduce((a, b) => a.expandToInclude(b));
+    for (final rect in regions) {
+      if (rect.width > 0 &&
+          rect.width <= 64 &&
+          (rect.width - rect.height).abs() < 1) {
+        return rect.center.dx;
+      }
+    }
+    // The side status region extends 12pt farther toward the screen edge
+    // than its visible content. UIKit 27.1 reports zero region margins here.
+    // On an inner display with no camera cutout, compensate for that apron.
+    return bounds.center.dx + (trailing ? -6 : 6);
+  }
+
   static bool usePlayerColumns(Size size) =>
       size.width >= 700 && size.height >= 500;
 

@@ -307,6 +307,37 @@ void main() {
     },
   );
 
+  test(
+    'side navigation follows camera and status content rather than apron',
+    () {
+      const camera = Rect.fromLTWH(399.6666667, 29.3333333, 37, 37);
+      const status = Rect.fromLTWH(382, 0, 84, 174);
+      expect(
+        AdaptiveLayout.systemNavigationAxis([camera, status], trailing: true),
+        closeTo(418.1666667, .001),
+      );
+      expect(
+        AdaptiveLayout.systemNavigationAxis([
+          const Rect.fromLTWH(867, 0, 84, 134),
+        ], trailing: true),
+        903,
+      );
+      expect(
+        AdaptiveLayout.systemNavigationAxis([
+          const Rect.fromLTWH(0, 0, 84, 174),
+          const Rect.fromLTWH(29.3333333, 399.6666667, 37, 37),
+        ], trailing: false),
+        closeTo(47.8333333, .001),
+      );
+      expect(
+        AdaptiveLayout.systemNavigationAxis([
+          const Rect.fromLTWH(0, 0, 84, 134),
+        ], trailing: false),
+        48,
+      );
+    },
+  );
+
   testWidgets(
     'folding keeps the outlet mounted and changes navigation placement',
     (tester) async {
