@@ -39,7 +39,7 @@
     <th width="33%">分组设置</th>
   </tr>
   <tr>
-    <td><img src="static/screenshot/home-outer.png" alt="test.10 外屏推荐页与玻璃侧栏" width="100%"></td>
+    <td><img src="static/screenshot/home-outer.png" alt="test.11 外屏推荐页与玻璃侧栏" width="100%"></td>
     <td><img src="static/screenshot/details-outer.png" alt="test.9 番剧详情与开始观看按钮" width="100%"></td>
     <td><img src="static/screenshot/settings-outer.png" alt="test.10 分组设置页" width="100%"></td>
   </tr>
@@ -47,7 +47,7 @@
 
 **展开内屏 · 自适应内容与侧栏**
 
-<img src="static/screenshot/home-inner.png" alt="test.10 展开内屏的推荐页" width="100%">
+<img src="static/screenshot/home-inner.png" alt="test.11 展开内屏的推荐页" width="100%">
 
 <table>
   <tr>
