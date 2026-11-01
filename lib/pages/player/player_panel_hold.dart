@@ -112,6 +112,9 @@ class _PlayerPanelHoldMouseRegionState
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: widget.cursor,
+      // Glass controls share a full-size Stack, but only their painted islands
+      // should take input or hold the panel open. Leave the video gaps hittable.
+      hitTestBehavior: HitTestBehavior.deferToChild,
       onEnter: (_) => _acquireHold(),
       onExit: (_) => _releaseHold(),
       child: widget.child,

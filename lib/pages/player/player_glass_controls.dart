@@ -205,6 +205,9 @@ class PlayerGlassControls extends StatelessWidget {
             rect: layout.dock,
             child: PlayerGlassSurface(
               key: const ValueKey('glass-player-dock'),
+              shape: const ContinuousRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(32)),
+              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
                 child: Column(
@@ -261,8 +264,15 @@ class PlayerGlassControls extends StatelessWidget {
 }
 
 class PlayerGlassSurface extends StatelessWidget {
-  const PlayerGlassSurface({super.key, required this.child});
+  const PlayerGlassSurface({
+    super.key,
+    required this.child,
+    this.shape = const RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(40)),
+    ),
+  });
   final Widget child;
+  final OutlinedBorder shape;
 
   @override
   Widget build(BuildContext context) {
@@ -283,16 +293,21 @@ class PlayerGlassSurface extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(40),
+      child: ClipPath(
+        clipper: ShapeBorderClipper(shape: shape),
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(
             sigmaX: opaque ? 0 : 10,
             sigmaY: opaque ? 0 : 10,
           ),
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(40),
+            decoration: ShapeDecoration(
+              shape: shape.copyWith(
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: opaque ? .45 : .25),
+                  width: .7,
+                ),
+              ),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -302,10 +317,6 @@ class PlayerGlassSurface extends StatelessWidget {
                         Colors.black.withValues(alpha: .28),
                         Colors.black.withValues(alpha: .40),
                       ],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: opaque ? .45 : .25),
-                width: .7,
               ),
             ),
             child: Material(type: MaterialType.transparency, child: child),
