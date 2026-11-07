@@ -8,6 +8,7 @@
 .build/
 .buildlog/
 /.cache/
+/.local-tools/
 .history
 .svn/
 .swiftpm/

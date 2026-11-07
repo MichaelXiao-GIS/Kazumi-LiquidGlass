@@ -1,6 +1,8 @@
 # Kazumi · iOS 27 / iPhone Duo
 
-这个分支基于上游 `7cb58d7d`（2.4.2），保留 Flutter、采集规则、弹幕、收藏、同步和播放服务，调整导航与自适应布局。
+这个分支初始基于上游 `7cb58d7d`（2.4.2），当前源码已整合 `7265274f`（2.4.3）的业务更新，保留 Flutter、采集规则、弹幕、收藏、同步和播放服务，调整导航与自适应布局。
+
+当前版本为 2.4.3（20404）/ 测试版 0013，使用 Xcode 27.2 / iOS SDK 27.2 构建。2026-11-07 本机验证：283 项 Flutter 测试、4 项原生 XCTest 通过；静态分析无 error / warning（17 条既有 info）；模拟器 Debug 和无签名设备 Release 构建成功。Duo 内外屏首次启动布局已检查；真实播放、DLNA 和辅助功能完整回归的边界见 [2.4.3 整合记录](UPSTREAM_2.4.3_INTEGRATION.md)。下文“本地验证记录”仍保留旧版本的历史记录。
 
 ## 界面
 
@@ -28,16 +30,16 @@
 
 ## 构建
 
-需要 Flutter **3.47.7**、Xcode **27.1 或更新**、CocoaPods、CMake >= 3.22 和 Ninja。SDK 版本与最低运行版本是两回事：构建使用 iOS 27.1+ SDK，Flutter 3.47.7 要求最低运行版本 **iOS 15**。
+需要 Flutter **3.47.9**、Xcode **27.1 或更新**、CocoaPods、CMake >= 3.22 和 Ninja。SDK 版本与最低运行版本是两回事：构建使用 iOS 27.1+ SDK，本项目最低运行版本为 **iOS 15**。
 
 ```sh
-flutter pub get
-flutter analyze --no-fatal-infos
-flutter test
+bash tool/flutterw pub get
+bash tool/flutterw analyze --no-fatal-infos --fatal-warnings
+bash tool/flutterw test
 bash tool/build_ios27.sh
 ```
 
-`dist/Kazumi_iOS27_unsigned.ipa` 是未签名包，需要自己的 Apple 开发者签名或侧载工具重新签名。脚本没有上传、发布或修改远端仓库。
+`dist/Kazumi_iOS27_unsigned.ipa` 是未签名包，需要自己的 Apple 开发者签名或侧载工具重新签名。脚本同时生成 SHA-256 和 `BUILD_INFO.txt`，记录实际包版本、SDK、源码提交和工作区状态；没有上传或发布远端仓库。
 
 iOS 图标原图保存在 `assets/images/logo/logo_ios.png`，透明区域按深棕色合成的构建源为 `logo_ios_opaque.png`。预先合成可避开 flutter_launcher_icons 0.14.4 的半透明像素颜色通道计算错误；原图保持不变。`flutter_launcher_icons.yaml` 固定使用该构建源；运行 `dart run flutter_launcher_icons` 可重建所有 iOS 尺寸。生成的 `AppIcon.appiconset` 一并提交，后续打包无需重新生成；其他平台图标不受影响。
 
@@ -50,10 +52,14 @@ dart run flutter_launcher_icons
 
 GitHub 的 iOS 构建会先检查 SDK；运行器必须安装并选择 Xcode 27.1+。如果系统有多个 Xcode，可以设置 `DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer`。
 
+GitHub Actions 的 iOS 任务可通过仓库变量 `IOS_RUNNER` 指定运行器标签；未配置时沿用 `macos-latest`，并继续由 SDK 检查阻止过旧环境构建。上游使用的 `xcode-27` 标签不保证在个人仓库可用，配置前应确认对应运行器已注册。
+
 ## 测试版发布命名
 
-- Release 标题：`Kazumi Liquid Glass测试版0012`。标题只包含项目名与四位测试版编号；系统版本及功能改动放在正文中。
-- Git 标签：`v2.4.2-ios27.1-test.r0012`。修订号固定四位，后续依次使用 `r0013`、`r0014`，不要再使用 `test.13`。
+当前测试版为 `Kazumi Liquid Glass测试版0013` / `v2.4.3-ios27.1-test.r0013`。标签中的 `ios27.1` 延续原适配线和 CI 排除规则；本版实际使用 iOS 27.2 SDK。
+
+- Release 标题：`Kazumi Liquid Glass测试版0013`。标题只包含项目名与四位测试版编号；系统版本及功能改动放在正文中。
+- Git 标签：`v2.4.3-ios27.1-test.r0013`。修订号固定四位，后续依次使用 `r0014`、`r0015`，不要再使用 `test.13`。
 - 字母前缀 `r` 与补零编号构成非纯数字的预发布标识，既保持版本格式有效，也让 GitHub 同日版本的字典序与修订号顺序一致。
 - 本地构建的测试包继续匹配工作流中的 `!*-ios27.1-test.*` 排除规则，避免上传时重建所有平台。
 - Release 说明仅保留功能改动、构建产物和安装注意事项；仓库首页下载入口始终指向 [Releases 列表](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)。

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Prefer the shared SDK; fall back to the downloaded workspace SDK.
+set -euo pipefail
+
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+flutter_root="${FLUTTER_ROOT:-$HOME/Developer/flutter}"
+if [[ ! -x "$flutter_root/bin/flutter" ]]; then
+  flutter_root="$project_root/.local-tools/flutter"
+fi
+if [[ ! -x "$flutter_root/bin/flutter" ]]; then
+  echo "Flutter SDK is missing: $flutter_root" >&2
+  echo "Install Flutter 3.47.9 for macOS arm64 here, then retry." >&2
+  exit 1
+fi
+
+export PATH="$flutter_root/bin:$PATH"
+# Optional project-local native tools, used when the Mac has no global install.
+if ! command -v pod >/dev/null 2>&1 && \
+  [[ -x "$project_root/.local-tools/native/share/rubygems/bin/pod" ]]; then
+  export GEM_HOME="$project_root/.local-tools/native/share/rubygems"
+  export GEM_PATH="$GEM_HOME"
+fi
+for tool_dir in "$project_root/.local-tools/native/share/rubygems/bin" \
+  "$project_root/.local-tools/native/bin" \
+  "$project_root/.local-tools/python/cmake/data/bin" \
+  "$project_root/.local-tools/python/bin"; do
+  if [[ -d "$tool_dir" ]]; then
+    export PATH="$PATH:$tool_dir"
+  fi
+done
+export PUB_CACHE="${PUB_CACHE:-$HOME/.pub-cache}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$project_root/.cache/config}"
+export FLUTTER_SUPPRESS_ANALYTICS=true
+export DART_SUPPRESS_ANALYTICS=true
+exec "$flutter_root/bin/flutter" "$@"

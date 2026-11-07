@@ -1107,12 +1107,21 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
       KazumiMenuItem(onPressed: widget.showVideoInfo, label: '视频详情'),
       KazumiMenuItem(
         onPressed: () {
+          // A remote renderer cannot read local files or supply rule headers.
+          if (playerController.isLocalPlayback) {
+            KazumiDialog.showToast(message: '暂不支持离线视频');
+            return;
+          }
+          if (playerController.referer.isNotEmpty) {
+            KazumiDialog.showToast(message: '暂不支持该规则');
+            return;
+          }
           final needRestart = playerController.playback.playing;
           playerController.pause();
           RemotePlay()
               .castVideo(
                 playerController.videoUrl,
-                videoPageController.currentPlugin.referer,
+                title: playerController.mediaTitle,
               )
               .whenComplete(() {
                 if (mounted && needRestart) {

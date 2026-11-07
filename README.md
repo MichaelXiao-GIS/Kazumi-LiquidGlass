@@ -15,7 +15,9 @@
 
 </div>
 
-**本项目是基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 2.4.2 修改的非官方 iOS 适配版本，由本仓库独立维护。** 保留 Kazumi 的 Flutter 架构、自定义规则、番剧目录、追番与播放能力，重点改进 iOS 界面、折叠屏布局和播放交互。
+**本项目是基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 修改的非官方 iOS 适配版本，由本仓库独立维护。** 初始基线为 2.4.2，当前源码已整合上游 2.4.3 的业务更新。保留 Kazumi 的 Flutter 架构、自定义规则、番剧目录、追番与播放能力，重点改进 iOS 界面、折叠屏布局和播放交互。
+
+当前版本为 **2.4.3（20404）/ 测试版 0013**，使用 iOS 27.2 SDK 构建。2.4.3 新增自定义规则仓库、改进投屏、修复排队下载的弹幕缓存，并优化追番分类切换。Duo 内屏继续沿用本分支的动态窗口、原生玻璃导航和双栏播放布局。方案比较、整合范围与待验证项见 [2.4.3 整合记录](docs/UPSTREAM_2.4.3_INTEGRATION.md)。
 
 ## 改版特色
 
@@ -62,7 +64,7 @@
 
 ## 下载与安装
 
-当前测试版：**Kazumi Liquid Glass测试版0012** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
+当前测试版：**Kazumi Liquid Glass测试版0013** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
 
 1. 下载 Release 附件中的 `Kazumi_iOS27_unsigned.ipa`。
 2. 使用自己的 Apple 开发者签名或侧载工具重新签名后安装。**IPA 未签名，不能直接点击安装。**
