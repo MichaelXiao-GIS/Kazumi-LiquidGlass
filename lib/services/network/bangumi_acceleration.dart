@@ -23,6 +23,6 @@ enum BangumiAcceleration implements AccelerationMode {
   String get description => switch (this) {
     direct => '访问官方接口',
     ech => '启用加密握手',
-    mirror => '镜像接口（默认）',
+    mirror => '镜像接口（默认，搜索使用官方接口）',
   };
 }

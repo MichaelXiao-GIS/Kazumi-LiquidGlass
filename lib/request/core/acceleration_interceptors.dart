@@ -17,6 +17,11 @@ class BangumiAccelerationInterceptor extends Interceptor {
           options.queryParameters = {};
           options.requireEch();
         case BangumiAcceleration.mirror:
+          // Public search works without mirror-specific app credentials.
+          // Keep it on the official API, including filtered/paged searches.
+          if (options.method == 'POST' && uri.path == '/v0/search/subjects') {
+            break;
+          }
           options.path =
               ApiEndpoints.bangumiMirrorDomain +
               uri.path +

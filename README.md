@@ -17,7 +17,7 @@
 
 **本项目是基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 修改的非官方 iOS 适配版本，由本仓库独立维护。** 初始基线为 2.4.2，当前源码已整合上游 2.4.3 的业务更新。保留 Kazumi 的 Flutter 架构、自定义规则、番剧目录、追番与播放能力，重点改进 iOS 界面、折叠屏布局和播放交互。
 
-当前版本为 **2.4.3（20405）/ 测试版 0014**，使用 iOS 27.2 SDK 构建。2.4.3 新增自定义规则仓库、改进投屏、修复排队下载的弹幕缓存，并优化追番分类切换。Duo 内屏继续沿用本分支的动态窗口、原生玻璃导航和双栏播放布局。本次修复暂停拖动后意外播放及搜索失败误报空结果，已完成 [Duo 播放回归](docs/DUO_PLAYBACK_REGRESSION_2026-11-07.md)。方案比较、整合范围与待验证项见 [2.4.3 整合记录](docs/UPSTREAM_2.4.3_INTEGRATION.md)。
+当前版本为 **2.4.3（20406）/ 测试版 0015**，使用 iOS 27.2 SDK 构建。2.4.3 新增自定义规则仓库、改进投屏、修复排队下载的弹幕缓存，并优化追番分类切换。Duo 内屏继续沿用本分支的动态窗口、原生玻璃导航和双栏播放布局。本次将番剧搜索接入官方接口，默认镜像设置下也能使用关键词、筛选和分页；详见 [搜索验证记录](docs/OFFICIAL_SEARCH_REGRESSION_2026-11-07.md)。此前已完成 [Duo 播放回归](docs/DUO_PLAYBACK_REGRESSION_2026-11-07.md)。方案比较、整合范围与待验证项见 [2.4.3 整合记录](docs/UPSTREAM_2.4.3_INTEGRATION.md)。
 
 ## 改版特色
 
@@ -64,13 +64,13 @@
 
 ## 下载与安装
 
-当前测试版：**Kazumi Liquid Glass测试版0014** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
+当前测试版：**Kazumi Liquid Glass测试版0015** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
 
 1. 下载 Release 附件中的 `Kazumi_iOS27_unsigned.ipa`。
 2. 使用自己的 Apple 开发者签名或侧载工具重新签名后安装。**IPA 未签名，不能直接点击安装。**
 3. 覆盖安装时保持原有签名身份与 Bundle ID；升级前建议备份规则与追番数据。
 
-构建使用 **iOS 27.1 SDK**，最低运行版本为 **iOS 15**。原生 Liquid Glass 与 Duo 场景适配需要相应系统支持，较旧系统使用回退界面。各版本的构建信息和 SHA-256 校验值随 Release 提供。
+构建使用 **iOS 27.2 SDK**，最低运行版本为 **iOS 15**。原生 Liquid Glass 与 Duo 场景适配需要相应系统支持，较旧系统使用回退界面。各版本的构建信息和 SHA-256 校验值随 Release 提供。
 
 本仓库目前发布 iOS 预发布测试包。其他平台的官方版本请访问 [上游 Kazumi Releases](https://github.com/Predidit/Kazumi/releases)。
 

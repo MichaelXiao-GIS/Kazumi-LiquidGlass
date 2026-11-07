@@ -110,9 +110,8 @@ class BangumiClient {
       return false;
     }
     final path = uri.path;
-    if (method == 'POST' && path == '/v0/search/subjects') {
-      return true;
-    }
+    // Search always uses the official API, so it must not carry mirror signing
+    // headers even when other Bangumi requests use the mirror.
     if (method != 'GET') {
       return false;
     }

@@ -111,7 +111,7 @@ abstract class _SearchPageController with Store {
         searchError =
             error is NetworkException &&
                 (error.statusCode == 401 || error.statusCode == 403)
-            ? '搜索服务拒绝了请求，请在网络设置中切换番剧条目加速方式后重试'
+            ? '官方搜索服务拒绝了请求，请稍后重试'
             : '搜索请求失败，请检查网络后重试';
         break;
       }
