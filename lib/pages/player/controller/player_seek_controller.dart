@@ -149,7 +149,7 @@ class PlayerSeekController {
           return false;
         }
       }
-      if (!cancelled || session.wasPlaying) {
+      if (session.wasPlaying) {
         await _play(enableSync: false);
       }
       return _isCurrent(session);

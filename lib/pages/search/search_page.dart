@@ -297,7 +297,9 @@ class _SearchPageState extends State<SearchPage> {
           Text(
               busy
                   ? '正在搜索…'
-                  : '${items.length} 部番剧${items.length < allItems.length ? ' · 隐藏 ${allItems.length - items.length} 部' : ''}',
+                  : failed && allItems.isEmpty
+                      ? '搜索未完成'
+                      : '${items.length} 部番剧${items.length < allItems.length ? ' · 隐藏 ${allItems.length - items.length} 部' : ''}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant)),
           if (summary.isNotEmpty) ...[
@@ -312,6 +314,8 @@ class _SearchPageState extends State<SearchPage> {
       )),
       if (busy && allItems.isEmpty)
         const SliverToBoxAdapter(child: _SearchLoadingState())
+      else if (failed && allItems.isEmpty)
+        SliverToBoxAdapter(child: _searchFailure())
       else if (allItems.isEmpty)
         const SliverToBoxAdapter(
           child: GeneralEmptyState(
@@ -341,7 +345,9 @@ class _SearchPageState extends State<SearchPage> {
           width: width,
           showRating: GStorage.getSetting(SettingsKeys.showRating),
         ),
-      if (allItems.isNotEmpty || !failed)
+      if (failed && allItems.isNotEmpty)
+        SliverToBoxAdapter(child: _searchFailure())
+      else if (!failed)
         SliverToBoxAdapter(
             child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -366,6 +372,24 @@ class _SearchPageState extends State<SearchPage> {
                 ))),
     ];
   }
+
+  Widget _searchFailure() => GeneralEmptyState(
+    icon: Icons.cloud_off_rounded,
+    title: _controller.searchError,
+    compact: _controller.bangumiList.isNotEmpty,
+    actions: [
+      StateActionButton.tonal(
+        onPressed: _loadMore,
+        icon: Icons.refresh_rounded,
+        text: '重试',
+      ),
+      StateActionButton.tonal(
+        onPressed: () => context.pushNamed('/settings/proxy'),
+        icon: Icons.settings_outlined,
+        text: '网络设置',
+      ),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {

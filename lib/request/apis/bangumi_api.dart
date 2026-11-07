@@ -306,7 +306,7 @@ class BangumiApi {
     };
   }
 
-  static Future<BangumiSearchPage?> bangumiSearch(String keyword,
+  static Future<BangumiSearchPage> bangumiSearch(String keyword,
       {List<String> tags = const [],
       int limit = 20,
       int offset = 0,
@@ -354,7 +354,7 @@ class BangumiApi {
       );
     } catch (e) {
       KazumiLogger().e('Network: unknown search problem', error: e);
-      return null;
+      rethrow;
     }
   }
 

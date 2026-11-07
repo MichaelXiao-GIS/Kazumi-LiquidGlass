@@ -9,6 +9,7 @@ import 'package:kazumi/repositories/collect_repository.dart';
 import 'package:kazumi/repositories/search_history_repository.dart';
 import 'package:kazumi/request/apis/bangumi_api.dart';
 import 'package:kazumi/request/apis/trace_api.dart';
+import 'package:kazumi/request/core/network_exception.dart';
 import 'package:kazumi/utils/search_parser.dart';
 
 part 'search_controller.g.dart';
@@ -19,10 +20,7 @@ abstract class _SearchPageController with Store {
   static const int _searchPageSize = 20;
   static const int _maxPagesPerSearch = 3;
 
-  _SearchPageController(
-    this._collectRepository,
-    this._searchHistoryRepository,
-  );
+  _SearchPageController(this._collectRepository, this._searchHistoryRepository);
 
   final ICollectRepository _collectRepository;
   final ISearchHistoryRepository _searchHistoryRepository;
@@ -37,6 +35,9 @@ abstract class _SearchPageController with Store {
 
   @observable
   bool isTimeOut = false;
+
+  @observable
+  String searchError = '';
 
   @observable
   bool notShowWatchedBangumis = false;
@@ -72,6 +73,7 @@ abstract class _SearchPageController with Store {
     final generation = type == 'add' ? _searchGeneration : ++_searchGeneration;
     isLoading = true;
     isTimeOut = false;
+    searchError = '';
     if (type != 'add') {
       bangumiList.clear();
       _searchOffset = 0;
@@ -96,40 +98,54 @@ abstract class _SearchPageController with Store {
       }
       hasMoreSearchResults = false;
       isLoading = false;
-      isTimeOut = bangumiList.isEmpty;
       return;
     }
     var pagesFetched = 0;
     do {
-      final page = await BangumiApi.bangumiSearch(filterState.keyword,
-          tags: filterState.tags,
-          limit: _searchPageSize,
-          offset: _searchOffset,
-          sort: filterState.sort,
-          dateRange: filterState.effectiveDateRange,
-          rankRange: filterState.rankRange,
-          scoreRange: filterState.scoreRange,
-          weekdays: filterState.weekdays);
-      // Discard stale responses before mutating the current search.
-      if (generation != _searchGeneration) return;
-      if (page == null) {
+      late final BangumiSearchPage page;
+      try {
+        page = await fetchSearchPage(filterState, _searchOffset);
+      } catch (error) {
+        if (generation != _searchGeneration) return;
+        isTimeOut = true;
+        searchError =
+            error is NetworkException &&
+                (error.statusCode == 401 || error.statusCode == 403)
+            ? '搜索服务拒绝了请求，请在网络设置中切换番剧条目加速方式后重试'
+            : '搜索请求失败，请检查网络后重试';
         break;
       }
+      // Discard stale responses before mutating the current search.
+      if (generation != _searchGeneration) return;
       pagesFetched++;
       _searchOffset += page.rawCount;
       hasMoreSearchResults = page.rawCount == _searchPageSize;
       final existingIds = bangumiList.map((item) => item.id).toSet();
-      final newItems =
-          page.items.where((item) => existingIds.add(item.id)).toList();
+      final newItems = page.items
+          .where((item) => existingIds.add(item.id))
+          .toList();
       if (newItems.isNotEmpty) {
         bangumiList.addAll(newItems);
         break;
       }
     } while (hasMoreSearchResults && pagesFetched < _maxPagesPerSearch);
     isLoading = false;
-    isTimeOut =
-        bangumiList.isEmpty && (pagesFetched == 0 || !hasMoreSearchResults);
   }
+
+  Future<BangumiSearchPage> fetchSearchPage(
+    SearchFilterState filters,
+    int offset,
+  ) => BangumiApi.bangumiSearch(
+    filters.keyword,
+    tags: filters.tags,
+    limit: _searchPageSize,
+    offset: offset,
+    sort: filters.sort,
+    dateRange: filters.effectiveDateRange,
+    rankRange: filters.rankRange,
+    scoreRange: filters.scoreRange,
+    weekdays: filters.weekdays,
+  );
 
   @action
   Future<void> deleteSearchHistory(SearchHistory history) async {
