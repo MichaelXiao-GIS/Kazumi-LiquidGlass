@@ -2,9 +2,9 @@
 # Run in the user's Terminal: install the official SDK for all local projects.
 set -euo pipefail
 
-sdk_version=3.47.9
+sdk_version=3.50.0
 archive_name="flutter_macos_arm64_${sdk_version}-stable.zip"
-archive_sha256=6545b85938745dc5070e9faf2adf70233c1811009d87fe6d27bfcda5a04b7698
+archive_sha256=ed2d08a3e3c023e84cbe9316d21bd88fda6ee9552f90c1eb4da41a07c170fb35
 archive_path="$HOME/Downloads/$archive_name"
 sdk_dir="$HOME/Developer/flutter"
 timestamp="$(date +%Y%m%d-%H%M%S)"
@@ -27,14 +27,14 @@ fi
 
 if [[ -e "$sdk_dir" || -L "$sdk_dir" ]]; then
   if [[ ! -x "$sdk_dir/bin/flutter" ]] ||
-     ! "$sdk_dir/bin/flutter" --version --machine | /usr/bin/grep -Eq '"frameworkVersion": *"3\.47\.9"'; then
+     ! "$sdk_dir/bin/flutter" --version --machine | /usr/bin/grep -Eq '"frameworkVersion": *"3\.50\.0"'; then
     echo "An existing, different SDK occupies $sdk_dir. Nothing was replaced." >&2
     exit 1
   fi
 else
   if [[ ! -f "$archive_path" ]]; then
     echo "Missing official archive: $archive_path" >&2
-    echo 'Download macOS arm64 Flutter 3.47.9 from https://docs.flutter.dev/install/archive' >&2
+    echo 'Download macOS arm64 Flutter 3.50.0 from https://docs.flutter.dev/install/archive' >&2
     exit 1
   fi
   echo 'Checking the already downloaded official archive...'

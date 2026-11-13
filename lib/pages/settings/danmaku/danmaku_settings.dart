@@ -1,3 +1,4 @@
+import 'package:kazumi/utils/dandan_credentials.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
@@ -192,6 +193,7 @@ class _DanmakuSettingsPageState extends State<DanmakuSettingsPage> {
                   setState(() {});
                 },
                 title: Text('弹弹play'),
+                description: hasDandanCredentials ? null : const Text('此安装包未配置弹弹play授权。Gamer 和 BiliBili 可独立使用。'),
                 initialValue: danmakuDanDanSource,
               ),
             ],

@@ -4,3 +4,7 @@ const Map<String, String> dandanCredentials = {
   'id': String.fromEnvironment('DANDANAPI_APPID'),
   'value': String.fromEnvironment('DANDANAPI_KEY'),
 };
+
+bool get hasDandanCredentials =>
+    dandanCredentials['id']!.isNotEmpty &&
+    dandanCredentials['value']!.isNotEmpty;

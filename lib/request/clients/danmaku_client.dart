@@ -16,6 +16,9 @@ class DanmakuClient {
     Map<String, dynamic> headers = const {},
     CancelToken? cancelToken,
   }) async {
+    if (!hasDandanCredentials) {
+      throw StateError('此版本未配置弹弹play授权');
+    }
     final timestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final uri = Uri.parse(url);
     final requestHeaders = <String, dynamic>{

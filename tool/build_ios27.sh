@@ -4,11 +4,17 @@ cd "$(dirname "$0")/.."
 bash tool/check_ios_sdk.sh
 
 bash tool/flutterw pub get
-bash tool/flutterw build ios --release --no-codesign "$@"
-mkdir -p dist
 package_dir=$(mktemp -d "${TMPDIR:-/tmp}/kazumi-package.XXXXXX")
 trap 'rm -rf "$package_dir"' EXIT
-mkdir -p "$package_dir/Payload"
+if [[ -n "${DANDANAPI_APPID:-}" || -n "${DANDANAPI_KEY:-}" ]]; then
+  : "${DANDANAPI_APPID:?DANDANAPI_APPID and DANDANAPI_KEY must be set together}"
+  : "${DANDANAPI_KEY:?DANDANAPI_APPID and DANDANAPI_KEY must be set together}"
+  # Keep the two build-time values out of command output and process arguments.
+  python3 -c 'import json, os, sys; json.dump({k: os.environ[k] for k in ("DANDANAPI_APPID", "DANDANAPI_KEY")}, sys.stdout)' > "$package_dir/defines.json"
+  set -- "--dart-define-from-file=$package_dir/defines.json" "$@"
+fi
+bash tool/flutterw build ios --release --no-codesign "$@"
+mkdir -p dist "$package_dir/Payload"
 ditto build/ios/iphoneos/Runner.app "$package_dir/Payload/Runner.app"
 ditto -c -k --keepParent "$package_dir/Payload" dist/Kazumi_iOS27_unsigned.ipa
 (

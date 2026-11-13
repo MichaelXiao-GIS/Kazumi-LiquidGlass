@@ -30,12 +30,14 @@ Future<void> showDanmakuSourceSheet(
   required String initialKeyword,
   required PlayerDanmakuController danmakuController,
   required VoidCallback onBeforeApply,
+  required bool Function() isPlaybackActive,
 }) async {
   Widget buildSheet(BuildContext _) => _DanmakuSourceSheet(
         bangumiId: bangumiId,
         initialKeyword: initialKeyword,
         danmakuController: danmakuController,
         onBeforeApply: onBeforeApply,
+        isPlaybackActive: isPlaybackActive,
       );
 
   if (MediaQuery.orientationOf(context) == Orientation.portrait) {
@@ -84,12 +86,14 @@ class _DanmakuSourceSheet extends StatefulWidget {
     required this.initialKeyword,
     required this.danmakuController,
     required this.onBeforeApply,
+    required this.isPlaybackActive,
   });
 
   final int bangumiId;
   final String initialKeyword;
   final PlayerDanmakuController danmakuController;
   final VoidCallback onBeforeApply;
+  final bool Function() isPlaybackActive;
 
   @override
   State<_DanmakuSourceSheet> createState() => _DanmakuSourceSheetState();
@@ -188,12 +192,11 @@ class _DanmakuSourceSheetState extends State<_DanmakuSourceSheet> {
       _segmentStart = null;
     });
     try {
-      final response =
-          await DanmakuApi.getDanDanEpisodesByDanDanBangumiID(anime.animeId);
+      final episodes = await DanmakuApi.episodes(anime);
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _episodes = response.episodes;
+        _episodes = episodes;
         if (_episodes.isEmpty) _error = '暂无分集';
       });
     } catch (error) {
@@ -209,11 +212,21 @@ class _DanmakuSourceSheetState extends State<_DanmakuSourceSheet> {
   Future<void> _selectEpisode(DanmakuEpisode episode) async {
     setState(() => _loading = true);
     try {
-      widget.onBeforeApply();
-      final hasDanmakus = await widget.danmakuController
-          .getDanDanmakuByEpisodeID(episode.episodeId);
+      final entries = await DanmakuApi.comments(episode);
       if (!mounted) return;
-      widget.danmakuController.setDanmakuEnabled(hasDanmakus);
+      if (!widget.isPlaybackActive()) {
+        KazumiDialog.dismiss(context: context);
+        return;
+      }
+      widget.onBeforeApply();
+      final controller = widget.danmakuController;
+      controller.clearAndInvalidateScheduledDanmakus();
+      controller.beginDanmakuLoad();
+      final hasDanmakus = entries.isNotEmpty;
+      controller.applyDanmakuLoad(
+        DanmakuLoadResult.success(danmakus: entries, bangumiID: 0),
+        enableDanmaku: hasDanmakus,
+      );
       KazumiDialog.dismiss(context: context);
       KazumiDialog.showToast(
         message: hasDanmakus ? '已切换弹幕源' : '暂无弹幕',
@@ -229,8 +242,8 @@ class _DanmakuSourceSheetState extends State<_DanmakuSourceSheet> {
     final filter = _episodeSearchController.text.toLowerCase();
     final visible = <DanmakuEpisode>[];
     for (var index = 0; index < _episodes.length; index++) {
-      final number = index + 1;
       final episode = _episodes[index];
+      final number = episode.number ?? index + 1;
       if (filter.isNotEmpty &&
           !episode.episodeTitle.toLowerCase().contains(filter) &&
           !number.toString().contains(filter)) {
@@ -246,10 +259,16 @@ class _DanmakuSourceSheetState extends State<_DanmakuSourceSheet> {
     return visible;
   }
 
+  int get _maxEpisodeNumber => _episodes.indexed.fold(0,
+      (maxNumber, item) => math.max(maxNumber, item.$2.number ?? item.$1 + 1));
+
   void _jumpToEpisode() {
     final number = int.tryParse(_episodeJumpController.text.trim());
-    if (number == null || number < 1 || number > _episodes.length) {
-      KazumiDialog.showToast(message: '集号范围：1–${_episodes.length}');
+    final match = _episodes.indexed.where(
+      (row) => (row.$2.number ?? row.$1 + 1) == number,
+    ).firstOrNull;
+    if (number == null || number < 1 || match == null) {
+      KazumiDialog.showToast(message: '没有找到该集号');
       return;
     }
 
@@ -261,7 +280,8 @@ class _DanmakuSourceSheetState extends State<_DanmakuSourceSheet> {
     _episodeJumpController.clear();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_episodeScrollController.hasClients) return;
-      final index = (number - 1) % _episodeSegmentSize;
+      final index = _visibleEpisodes.indexOf(match.$2);
+      if (index < 0) return;
       final target = (index * _episodeRowExtent)
           .clamp(0.0, _episodeScrollController.position.maxScrollExtent)
           .toDouble();
@@ -519,6 +539,7 @@ class _DanmakuSourceSheetState extends State<_DanmakuSourceSheet> {
         if (showTools)
           _EpisodeToolbar(
             total: _episodes.length,
+            maxNumber: _maxEpisodeNumber,
             matched: visible.length,
             segmentStart: _segmentStart,
             searchController: _episodeSearchController,
@@ -660,6 +681,7 @@ class _SheetHeader extends StatelessWidget {
 class _EpisodeToolbar extends StatelessWidget {
   const _EpisodeToolbar({
     required this.total,
+    required this.maxNumber,
     required this.matched,
     required this.segmentStart,
     required this.searchController,
@@ -670,6 +692,7 @@ class _EpisodeToolbar extends StatelessWidget {
   });
 
   final int total;
+  final int maxNumber;
   final int matched;
   final int? segmentStart;
   final TextEditingController searchController;
@@ -681,8 +704,8 @@ class _EpisodeToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final showSegments = total > _episodeSegmentSize;
-    final segmentCount = (total / _episodeSegmentSize).ceil();
+    final showSegments = maxNumber > _episodeSegmentSize;
+    final segmentCount = (maxNumber / _episodeSegmentSize).ceil();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
@@ -773,7 +796,7 @@ class _EpisodeToolbar extends StatelessWidget {
                           for (var index = 0; index < segmentCount; index++)
                             _SegmentChip(
                               label:
-                                  '${index * _episodeSegmentSize + 1}-${((index + 1) * _episodeSegmentSize).clamp(0, total)}',
+                                  '${index * _episodeSegmentSize + 1}-${((index + 1) * _episodeSegmentSize).clamp(0, maxNumber)}',
                               selected: segmentStart ==
                                   index * _episodeSegmentSize + 1,
                               onTap: () =>
@@ -789,7 +812,7 @@ class _EpisodeToolbar extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           Text(
-            matched == total ? '共 $total 集' : '显示 $matched 集，共 $total 集',
+            matched == total ? '共 $total 项' : '显示 $matched 项，共 $total 项',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

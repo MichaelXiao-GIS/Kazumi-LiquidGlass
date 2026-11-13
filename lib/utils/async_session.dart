@@ -9,6 +9,8 @@ final class AsyncSessionOwner {
 
   bool get isClosed => _closed;
 
+  AsyncSession get current => AsyncSession._(this, _version);
+
   AsyncSession begin() {
     if (_closed) {
       throw StateError('Cannot begin a session after the owner is closed.');

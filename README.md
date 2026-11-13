@@ -15,9 +15,9 @@
 
 </div>
 
-**本项目是基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 修改的非官方 iOS 适配版本，由本仓库独立维护。** 初始基线为 2.4.2，当前源码已整合上游 2.4.3 的业务更新。保留 Kazumi 的 Flutter 架构、自定义规则、番剧目录、追番与播放能力，重点改进 iOS 界面、折叠屏布局和播放交互。
+**本项目是基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 修改的非官方 iOS 适配版本，由本仓库独立维护。** 初始基线为 2.4.2，当前源码已整合上游 2.4.4。保留 Kazumi 的 Flutter 架构、自定义规则、番剧目录、追番与播放能力，重点改进 iOS 界面、折叠屏布局和播放交互。
 
-当前版本为 **2.4.3（20406）/ 测试版 0015**，使用 iOS 27.2 SDK 构建。2.4.3 新增自定义规则仓库、改进投屏、修复排队下载的弹幕缓存，并优化追番分类切换。Duo 内屏继续沿用本分支的动态窗口、原生玻璃导航和双栏播放布局。本次将番剧搜索接入官方接口，默认镜像设置下也能使用关键词、筛选和分页；详见 [搜索验证记录](docs/OFFICIAL_SEARCH_REGRESSION_2026-11-07.md)。此前已完成 [Duo 播放回归](docs/DUO_PLAYBACK_REGRESSION_2026-11-07.md)。方案比较、整合范围与待验证项见 [2.4.3 整合记录](docs/UPSTREAM_2.4.3_INTEGRATION.md)。
+当前版本为 **2.4.4（20407）/ 测试版 0016**，使用 iOS 27.2 SDK 构建。Gamer（巴哈姆特动画疯）和 BiliBili 现在可以独立匹配分集并加载弹幕，自动播放、手动选集和下载缓存共用同一套来源。弹弹play 需要构建时配置开发者授权，本测试版可直接使用前两个来源。上游 2.4.4 带来了新版定时关闭选择器，并更新了 Flutter 和播放器。此前的[官方搜索验证](docs/OFFICIAL_SEARCH_REGRESSION_2026-11-07.md)和 [Duo 播放回归](docs/DUO_PLAYBACK_REGRESSION_2026-11-07.md)记录可供对照。
 
 ## 改版特色
 

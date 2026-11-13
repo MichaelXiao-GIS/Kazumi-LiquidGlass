@@ -1,8 +1,10 @@
 # Kazumi · iOS 27 / iPhone Duo
 
-这个分支初始基于上游 `7cb58d7d`（2.4.2），当前源码已整合 `7265274f`（2.4.3）的业务更新，保留 Flutter、采集规则、弹幕、收藏、同步和播放服务，调整导航与自适应布局。
+这个分支初始基于上游 `7cb58d7d`（2.4.2），当前源码已整合上游 `4ca04009`（2.4.4），保留 Flutter、采集规则、弹幕、收藏、同步和播放服务，调整导航与自适应布局。
 
-当前版本为 2.4.3（20406）/ 测试版 0015，使用 Xcode 27.2 / iOS SDK 27.2 构建。2026-11-07 本机验证：299 项 Flutter 测试通过；静态分析无 error / warning（17 条既有 info）。番剧搜索现使用官方接口，默认镜像设置下也能搜索和翻页，详见 [官方搜索验证记录](OFFICIAL_SEARCH_REGRESSION_2026-11-07.md)。此前已完成 Duo 内外屏、半折叠、旋转、全屏、暂停拖动、倍速、换集与历史续播回归，详见 [Duo 播放回归记录](DUO_PLAYBACK_REGRESSION_2026-11-07.md)。下文旧版本的本地验证记录继续保留。
+当前版本为 **2.4.4（20407）/ 测试版 0016**。Flutter 已升级至 3.50.0，播放器、音量控制依赖和自定义定时关闭选择器随上游同步。弹幕自动匹配和手动搜索按站点分集编号取数，Gamer 和 BiliBili 可独立工作。使用开发者自己的弹弹play授权构建时，请成对设置环境变量 `DANDANAPI_APPID` 和 `DANDANAPI_KEY`，然后运行下方构建脚本。
+
+2026-11-13 实际联网核对，giriGiriLove《学生会也有洞！》第 5、6 集分别匹配到 Gamer 编号 52088、52627，返回 1,543 与 1,332 条弹幕。该番剧当时没有收录 BiliBili 条目。仅开启 BiliBili 时，《葬送的芙莉莲》第 1 集（CID 1339446971）返回 3,600 条。测试包未配置弹弹play授权，已用模拟签名响应覆盖真实分集编号、服务失败与多源合并。此前的[番剧搜索验证](OFFICIAL_SEARCH_REGRESSION_2026-11-07.md)与 [Duo 播放回归](DUO_PLAYBACK_REGRESSION_2026-11-07.md)另有记录。
 
 ## 界面
 
@@ -30,7 +32,7 @@
 
 ## 构建
 
-需要 Flutter **3.47.9**、Xcode **27.1 或更新**、CocoaPods、CMake >= 3.22 和 Ninja。SDK 版本与最低运行版本是两回事：构建使用 iOS 27.1+ SDK，本项目最低运行版本为 **iOS 15**。
+需要 Flutter **3.50.0**、Xcode **27.1 或更新**、CocoaPods、CMake >= 3.22 和 Ninja。SDK 版本与最低运行版本是两回事：构建使用 iOS 27.1+ SDK，本项目最低运行版本为 **iOS 15**。
 
 ```sh
 bash tool/flutterw pub get
@@ -56,10 +58,10 @@ GitHub Actions 的 iOS 任务可通过仓库变量 `IOS_RUNNER` 指定运行器�
 
 ## 测试版发布命名
 
-当前测试版为 `Kazumi Liquid Glass测试版0015` / `v2.4.3-ios27.1-test.r0015`。标签中的 `ios27.1` 延续原适配线和 CI 排除规则；本版实际使用 iOS 27.2 SDK。
+当前测试版为 `Kazumi Liquid Glass测试版0016` / `v2.4.4-ios27.1-test.r0016`。标签中的 `ios27.1` 延续原适配线和 CI 排除规则；本版实际使用 iOS 27.2 SDK。
 
-- Release 标题：`Kazumi Liquid Glass测试版0015`。标题只包含项目名与四位测试版编号；系统版本及功能改动放在正文中。
-- Git 标签：`v2.4.3-ios27.1-test.r0015`。修订号固定四位，后续依次使用 `r0016`、`r0017`，不要再使用 `test.13`。
+- Release 标题：`Kazumi Liquid Glass测试版0016`。标题只包含项目名与四位测试版编号；系统版本及功能改动放在正文中。
+- Git 标签：`v2.4.4-ios27.1-test.r0016`。修订号固定四位，后续依次使用 `r0017`、`r0018`，不要再使用 `test.13`。
 - 字母前缀 `r` 与补零编号构成非纯数字的预发布标识，既保持版本格式有效，也让 GitHub 同日版本的字典序与修订号顺序一致。
 - 本地构建的测试包继续匹配工作流中的 `!*-ios27.1-test.*` 排除规则，避免上传时重建所有平台。
 - Release 说明仅保留功能改动、构建产物和安装注意事项；仓库首页下载入口始终指向 [Releases 列表](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)。

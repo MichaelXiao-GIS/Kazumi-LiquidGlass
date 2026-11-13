@@ -1,23 +1,40 @@
+enum DanmakuSource { dandan, gamer, bilibili }
+
 class DanmakuEpisode {
-  int episodeId;
-  String episodeTitle;
+  final int episodeId;
+  final int? number;
+  final DanmakuSource source;
+  final String episodeTitle;
 
   DanmakuEpisode({
     required this.episodeId,
     required this.episodeTitle,
+    this.number,
+    this.source = DanmakuSource.dandan,
   });
 
   factory DanmakuEpisode.fromJson(Map<String, dynamic> json) {
     return DanmakuEpisode(
       episodeId: json['episodeId'],
-      episodeTitle: json['episodeTitle'],
+      episodeTitle: json['episodeTitle'] ?? '${json['episodeNumber'] ?? ''}',
+      number: regularEpisodeNumber(
+        json['episodeNumber'] ?? json['episodeTitle'],
+      ),
     );
+  }
+
+  static int? regularEpisodeNumber(dynamic label) {
+    final match = RegExp(
+      r'^(?:第\s*)?(\d+)(?:\.0+)?(?:\s*[话話集])?$',
+    ).firstMatch(label?.toString().trim() ?? '');
+    return match == null ? null : int.tryParse(match[1]!);
   }
 
   Map<String, dynamic> toJson() {
     return {
       'episodeId': episodeId,
       'episodeTitle': episodeTitle,
+      'episodeNumber': number?.toString(),
     };
   }
 }
@@ -38,16 +55,20 @@ class DanmakuEpisodeResponse {
   });
 
   factory DanmakuEpisodeResponse.fromJson(Map<String, dynamic> json) {
-    var list = json['bangumi']['episodes'] as List;
-    List<DanmakuEpisode> episodeList =
-        list.map((i) => DanmakuEpisode.fromJson(i)).toList();
+    if (json['success'] == false || (json['errorCode'] ?? 0) != 0) {
+      throw StateError('弹弹play：${json['errorMessage'] ?? json['errorCode']}');
+    }
+    final list = json['bangumi']?['episodes'] as List? ?? const [];
+    List<DanmakuEpisode> episodeList = list
+        .map((i) => DanmakuEpisode.fromJson(i))
+        .toList();
 
     return DanmakuEpisodeResponse(
-      bangumiId: json['bangumi']['animeId'],
+      bangumiId: json['bangumi']?['animeId'] ?? 0,
       episodes: episodeList,
-      errorCode: json['errorCode'],
-      success: json['success'],
-      errorMessage: json['errorMessage'],
+      errorCode: json['errorCode'] ?? 0,
+      success: json['success'] ?? true,
+      errorMessage: json['errorMessage'] ?? '',
     );
   }
 
@@ -63,7 +84,10 @@ class DanmakuEpisodeResponse {
 
   Map<String, dynamic> toJson() {
     return {
-      'bangumi': episodes.map((episode) => episode.toJson()).toList(),
+      'bangumi': {
+        'animeId': bangumiId,
+        'episodes': episodes.map((episode) => episode.toJson()).toList(),
+      },
       'errorCode': errorCode,
       'success': success,
       'errorMessage': errorMessage,

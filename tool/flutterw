@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Prefer the shared SDK; fall back to the downloaded workspace SDK.
+# Use the project SDK when installed; KAZUMI_FLUTTER_ROOT explicitly overrides it.
 set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-flutter_root="${FLUTTER_ROOT:-$HOME/Developer/flutter}"
+flutter_root="${KAZUMI_FLUTTER_ROOT:-$project_root/.local-tools/flutter-3.50.0}"
+if [[ ! -x "$flutter_root/bin/flutter" ]]; then
+  flutter_root="${FLUTTER_ROOT:-$HOME/Developer/flutter}"
+fi
 if [[ ! -x "$flutter_root/bin/flutter" ]]; then
   flutter_root="$project_root/.local-tools/flutter"
 fi
 if [[ ! -x "$flutter_root/bin/flutter" ]]; then
   echo "Flutter SDK is missing: $flutter_root" >&2
-  echo "Install Flutter 3.47.9 for macOS arm64 here, then retry." >&2
+  echo "Install Flutter 3.50.0 for macOS arm64 here, then retry." >&2
   exit 1
 fi
 

@@ -550,6 +550,7 @@ abstract class _VideoPageController with Store implements Disposable {
         params.bangumiId,
         params.pluginName,
         params.danmakuEpisodeNumber,
+        airDate: bangumiItem.airDate,
       );
       if (session.isActive && danmakuSession.isActive) {
         if (result.hasDanmakus) {
@@ -574,6 +575,8 @@ abstract class _VideoPageController with Store implements Disposable {
       KazumiLogger().w('VideoPageController: failed to load danmaku', error: e);
     }
   }
+
+  AsyncSession get playbackSession => _playbackSessions.current;
 
   void cancelAutomaticDanmakuLoad() {
     _danmakuSessions.cancel();

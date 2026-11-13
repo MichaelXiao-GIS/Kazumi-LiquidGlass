@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
+import 'package:kazumi/bean/widget/scroll_field.dart';
 import 'package:kazumi/navigation.dart';
 import 'package:kazumi/services/player/timed_shutdown_service.dart';
 
@@ -231,6 +232,49 @@ void main() {
     await tester.tap(find.text('update all'));
     await tester.pumpAndSettle();
     expect(find.text('updating'), findsOneWidget);
+  });
+
+  testWidgets('custom timer keeps both wheel selections across Duo screen changes',
+      (tester) async {
+    final timer = TimedShutdownService();
+    addTearDown(timer.cancel);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    await mountApp(tester);
+    TimedShutdownService.showCustomTimerDialog();
+    await tester.pumpAndSettle();
+
+    Finder field(String label) => find.byWidgetPredicate(
+        (widget) => widget is ScrollField && widget.semanticLabel == label);
+    String selected(String label) =>
+        tester.getSemantics(find.bySemanticsLabel(label)).value;
+
+    expect(selected('小时'), '00');
+    expect(selected('分钟'), '00');
+    await tester.drag(field('小时'), const Offset(0, -65));
+    await tester.pumpAndSettle();
+    expect(selected('小时'), '01');
+
+    tester.view.physicalSize = const Size(951, 669);
+    await tester.pumpAndSettle();
+    expect(selected('小时'), '01');
+    await tester.drag(field('分钟'), const Offset(0, -112));
+    await tester.pumpAndSettle();
+    expect(selected('分钟'), '02');
+
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(selected('小时'), '01');
+    expect(selected('分钟'), '02');
+    await tester.tap(find.text('开始'));
+    await tester.pumpAndSettle();
+    expect(timer.isActive, isTrue);
+    expect(timer.setMinutes, 62);
+    final before = timer.remainingSecondsNotifier.value;
+    await tester.pump(const Duration(seconds: 1));
+    expect(timer.remainingSecondsNotifier.value, before - 1);
+    timer.cancel();
   });
 
   testWidgets('cancelling a timer only closes its own expiry dialog',

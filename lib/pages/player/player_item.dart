@@ -1229,11 +1229,13 @@ class _PlayerItemState extends State<PlayerItem>
   }
 
   void showDanmakuSwitch() {
+    final session = videoPageController.playbackSession;
     unawaited(showDanmakuSourceSheet(
       context,
       bangumiId: videoPageController.bangumiItem.id,
       initialKeyword: videoPageController.title,
       danmakuController: playerController.danmaku,
+      isPlaybackActive: () => session.isActive,
       onBeforeApply: videoPageController.cancelAutomaticDanmakuLoad,
     ));
   }
