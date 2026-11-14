@@ -1,16 +1,19 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kazumi/bean/widget/ios_glass.dart';
+import 'package:kazumi/pages/menu/ios_system_tabs.dart';
 import 'package:kazumi/pages/menu/adaptive_navigation_scaffold.dart';
 import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/utils/theme.dart';
 
 const _contentKey = ValueKey('retained content');
 
-Future<GlobalKey<NavigatorState>> _mountShell(WidgetTester tester) async {
+Future<GlobalKey<NavigatorState>> _mountShell(
+  WidgetTester tester, {
+  ValueChanged<int>? onSelected,
+  VoidCallback? onSearch,
+}) async {
   final navigator = GlobalKey<NavigatorState>();
   final observer = RouteObserver<PageRoute<void>>();
   await tester.pumpWidget(
@@ -25,8 +28,8 @@ Future<GlobalKey<NavigatorState>> _mountShell(WidgetTester tester) async {
           observer: observer,
           child: AdaptiveNavigationScaffold(
             selectedIndex: 3,
-            onSelected: (_) {},
-            onSearch: () {},
+            onSelected: onSelected ?? (_) {},
+            onSearch: onSearch ?? () {},
             child: Scaffold(
               body: ListView(
                 key: _contentKey,
@@ -64,39 +67,28 @@ void main() {
       await tester.pumpAndSettle();
       final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
       final offset = scroll.position.pixels;
-      expect(find.byType(IosGlassNavigation), findsOneWidget);
+      expect(find.byType(IosSystemTabs), findsOneWidget);
 
       navigator.currentState!.push<void>(_details('设置'));
       await tester.pump();
-      expect(
-        find.byType(IosGlassNavigation, skipOffstage: false),
-        findsNothing,
-      );
+      expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
       await tester.pumpAndSettle();
       navigator.currentState!.push<void>(_details('播放设置'));
       await tester.pumpAndSettle();
       navigator.currentState!.pop();
       await tester.pumpAndSettle();
-      expect(
-        find.byType(IosGlassNavigation, skipOffstage: false),
-        findsNothing,
-      );
+      expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
 
       navigator.currentState!.pop();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      expect(
-        find.byType(IosGlassNavigation, skipOffstage: false),
-        findsNothing,
-      );
+      expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
       await tester.pumpAndSettle();
-      expect(find.byType(IosGlassNavigation), findsOneWidget);
+      expect(find.byType(IosSystemTabs), findsOneWidget);
       expect(tester.element(find.byKey(_contentKey)), same(contentElement));
       expect(scroll.position.pixels, offset);
       expect(
-        tester
-            .widget<IosGlassNavigation>(find.byType(IosGlassNavigation))
-            .selectedIndex,
+        tester.widget<IosSystemTabs>(find.byType(IosSystemTabs)).selectedIndex,
         3,
       );
       expect(tester.takeException(), isNull);
@@ -116,108 +108,100 @@ void main() {
         await drag.moveBy(Offset(size.width * .2, 0));
         await tester.pump();
         expect(navigator.currentState!.userGestureInProgress, isTrue);
-        expect(
-          find.byType(IosGlassNavigation, skipOffstage: false),
-          findsNothing,
-        );
+        expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
         await tester.pump(const Duration(milliseconds: 500));
         await drag.up();
         await tester.pumpAndSettle();
         expect(navigator.currentState!.canPop(), isTrue);
-        expect(
-          find.byType(IosGlassNavigation, skipOffstage: false),
-          findsNothing,
-        );
+        expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
 
         final back = await tester.startGesture(Offset(1, size.height / 2));
         await back.moveBy(Offset(size.width * .7, 0));
         await tester.pump();
-        expect(
-          find.byType(IosGlassNavigation, skipOffstage: false),
-          findsNothing,
-        );
+        expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
         await tester.pump(const Duration(milliseconds: 500));
         await back.up();
         await tester.pump(const Duration(milliseconds: 50));
-        expect(
-          find.byType(IosGlassNavigation, skipOffstage: false),
-          findsNothing,
-        );
+        expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
         await tester.pumpAndSettle();
         expect(navigator.currentState!.canPop(), isFalse);
-        expect(find.byType(IosGlassNavigation), findsOneWidget);
+        expect(find.byType(IosSystemTabs), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
   }
 
-  testWidgets('dialogs do not unmount the page navigation', (tester) async {
+  testWidgets(
+    'system tab events select only destinations and dispatch search separately',
+    (tester) async {
+      final selected = <int>[];
+      var searches = 0;
+      await _mountShell(
+        tester,
+        onSelected: selected.add,
+        onSearch: () => searches++,
+      );
+      final messenger = tester.binding.defaultBinaryMessenger;
+      const channel = MethodChannel('com.predidit.kazumi/tabs');
+      for (final index in [0, 1, 2, 3, 4, -1]) {
+        await messenger.handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(MethodCall('select', index)),
+          null,
+        );
+      }
+      await messenger.handlePlatformMessage(
+        channel.name,
+        channel.codec.encodeMethodCall(const MethodCall('search')),
+        null,
+      );
+      expect(selected, [0, 1, 2, 3]);
+      expect(searches, 1);
+    },
+  );
+
+  testWidgets('modal dialogs take priority over native navigation', (
+    tester,
+  ) async {
     final navigator = await _mountShell(tester);
-    final navigationState = tester.state(find.byType(IosGlassNavigation));
     showCupertinoDialog<void>(
       context: navigator.currentContext!,
       builder: (_) => const CupertinoAlertDialog(title: Text('测试对话框')),
     );
     await tester.pumpAndSettle();
-    expect(
-      tester.state(find.byType(IosGlassNavigation)),
-      same(navigationState),
-    );
+    expect(find.byType(IosSystemTabs, skipOffstage: false), findsNothing);
     navigator.currentState!.pop();
     await tester.pumpAndSettle();
-    expect(
-      tester.state(find.byType(IosGlassNavigation)),
-      same(navigationState),
-    );
-    expect(tester.takeException(), isNull);
+    expect(find.byType(IosSystemTabs), findsOneWidget);
   });
 
-  testWidgets('native glass is hidden before deferred platform disposal', (
+  testWidgets('updates and hides the native controller with the route', (
     tester,
   ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     final messenger = tester.binding.defaultBinaryMessenger;
-    final channels = <MethodChannel>[];
-    final events = <String>[];
-    messenger.setMockMethodCallHandler(SystemChannels.platform_views, (
-      call,
-    ) async {
-      if (call.method == 'create') {
-        final id = (call.arguments as Map)['id'];
-        final channel = MethodChannel('com.predidit.kazumi/glass/$id');
-        channels.add(channel);
-        messenger.setMockMethodCallHandler(channel, (call) async {
-          events.add(call.method);
-          return null;
-        });
-      }
+    const channel = MethodChannel('com.predidit.kazumi/tabs');
+    final calls = <MethodCall>[];
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      calls.add(call);
       return null;
     });
-    addTearDown(() {
-      messenger.setMockMethodCallHandler(SystemChannels.platform_views, null);
-      for (final channel in channels) {
-        messenger.setMockMethodCallHandler(channel, null);
-      }
-    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     final navigator = await _mountShell(tester);
-    expect(find.byType(UiKitView), findsOneWidget);
-    expect(channels, hasLength(1));
+    expect(calls.last.method, 'update');
+    expect(calls.last.arguments['selectedIndex'], 3);
+    expect(calls.last.arguments['visible'], true);
     navigator.currentState!.push<void>(_details('设置'));
     await tester.pump();
-    expect(find.byType(UiKitView, skipOffstage: false), findsNothing);
-    expect(events, contains('hide'));
+    expect(calls.last.method, 'hide');
     await tester.pumpAndSettle();
     navigator.currentState!.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(channels, hasLength(1));
+    expect(calls.last.method, 'hide');
     await tester.pumpAndSettle();
-    expect(channels, hasLength(2));
-    expect(find.byType(UiKitView), findsOneWidget);
+    expect(calls.last.method, 'update');
+    expect(calls.last.arguments['selectedIndex'], 3);
     await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    debugDefaultTargetPlatformOverride = null;
+    expect(calls.last.method, 'hide');
   });
 }

@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kazumi/bean/widget/ios_glass.dart';
+import 'package:kazumi/pages/menu/ios_system_tabs.dart';
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/pages/menu/adaptive_navigation_scaffold.dart';
@@ -307,39 +307,8 @@ void main() {
     },
   );
 
-  test(
-    'side navigation follows camera and status content rather than apron',
-    () {
-      const camera = Rect.fromLTWH(399.6666667, 29.3333333, 37, 37);
-      const status = Rect.fromLTWH(382, 0, 84, 174);
-      expect(
-        AdaptiveLayout.systemNavigationAxis([camera, status], trailing: true),
-        closeTo(418.1666667, .001),
-      );
-      expect(
-        AdaptiveLayout.systemNavigationAxis([
-          const Rect.fromLTWH(867, 0, 84, 134),
-        ], trailing: true),
-        903,
-      );
-      expect(
-        AdaptiveLayout.systemNavigationAxis([
-          const Rect.fromLTWH(0, 0, 84, 174),
-          const Rect.fromLTWH(29.3333333, 399.6666667, 37, 37),
-        ], trailing: false),
-        closeTo(47.8333333, .001),
-      );
-      expect(
-        AdaptiveLayout.systemNavigationAxis([
-          const Rect.fromLTWH(0, 0, 84, 134),
-        ], trailing: false),
-        48,
-      );
-    },
-  );
-
   testWidgets(
-    'folding keeps the outlet mounted and changes navigation placement',
+    'folding keeps the outlet mounted and keeps the native tab connection',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -361,20 +330,10 @@ void main() {
           ),
         ),
       );
-      expect(
-        tester
-            .widget<IosGlassNavigation>(find.byType(IosGlassNavigation))
-            .vertical,
-        isFalse,
-      );
+      final bridge = tester.element(find.byType(IosSystemTabs));
       tester.view.physicalSize = const Size(900, 700);
       await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<IosGlassNavigation>(find.byType(IosGlassNavigation))
-            .vertical,
-        isTrue,
-      );
+      expect(tester.element(find.byType(IosSystemTabs)), same(bridge));
       tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
       expect(started, 1);
@@ -421,7 +380,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(childPadding, const EdgeInsets.only(top: 44, bottom: 142));
+      expect(childPadding, const EdgeInsets.only(top: 44, bottom: 34));
       expect(childSize, const Size(284, 568));
       expect(tester.takeException(), isNull);
     },

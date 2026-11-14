@@ -155,14 +155,14 @@ class _PopularPageState extends State<PopularPage> {
           ),
         ],
       ),
-      floatingActionButton:
-          NavigationScrollToTop.of(context)?.inNavigation == true
-          ? null
-          : FloatingActionButton(
-              onPressed: _scrollToTop,
-              tooltip: '返回顶部',
-              child: const Icon(Icons.arrow_upward),
-            ),
+      floatingActionButton: Visibility(
+        visible: NavigationScrollToTop.of(context)?.inNavigation != true,
+        child: FloatingActionButton(
+          onPressed: _scrollToTop,
+          tooltip: '返回顶部',
+          child: const Icon(Icons.arrow_upward),
+        ),
+      ),
     );
   }
 

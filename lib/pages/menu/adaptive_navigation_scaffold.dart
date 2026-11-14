@@ -3,9 +3,8 @@ import 'dart:ui' as ui;
 import 'package:kazumi/pages/menu/navigation_scroll_to_top.dart';
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
-import 'package:kazumi/bean/widget/ios_glass.dart';
+import 'package:kazumi/pages/menu/ios_system_tabs.dart';
 import 'package:kazumi/bean/widget/ios_bottom_scrim.dart';
-import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/pages/menu/route_visibility.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
 
@@ -31,6 +30,11 @@ class AdaptiveNavigationScaffold extends StatefulWidget {
 class _AdaptiveNavigationScaffoldState
     extends State<AdaptiveNavigationScaffold> {
   final _scrollToTop = NavigationScrollToTopController();
+  bool _nativeScrollToTop = false;
+
+  void _setScrollToTopPlacement(bool shown) {
+    if (_nativeScrollToTop != shown) setState(() => _nativeScrollToTop = shown);
+  }
 
   @override
   void dispose() {
@@ -43,84 +47,62 @@ class _AdaptiveNavigationScaffoldState
     builder: (context, box) {
       final size = box.biggest;
       final media = MediaQuery.of(context);
-      final ios = Theme.of(context).platform == TargetPlatform.iOS;
-      final scene = IosSceneEnvironment.of(context);
-      final sideRegions = scene.matches(size)
-          ? scene.occlusions.where(
-              (rect) =>
-                  rect.center.dx > size.width * .8 &&
-                  rect.width < size.width * .4 &&
-                  rect.height < size.height * .6,
-            )
-          : const <Rect>[];
-      final trailing = ios && sideRegions.isNotEmpty;
-      final leadingRegions = scene.matches(size)
-          ? scene.occlusions.where(
-              (rect) =>
-                  rect.center.dx < size.width * .2 &&
-                  rect.width < size.width * .4 &&
-                  rect.height < size.height * .6,
-            )
-          : const <Rect>[];
-      final belowSystemRegion = ios && (trailing || leadingRegions.isNotEmpty);
-      final systemRegions = trailing ? sideRegions : leadingRegions;
-      final systemCenter = belowSystemRegion
-          ? AdaptiveLayout.systemNavigationAxis(
-              systemRegions,
-              trailing: trailing,
-            )
-          : null;
+      if (Theme.of(context).platform == TargetPlatform.iOS) {
+        final visible =
+            media.viewInsets.bottom == 0 &&
+            (ModalRoute.isCurrentOf(context) ?? true) &&
+            RouteVisibility.nativeControlsVisibleOf(context);
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            NavigationScrollToTop(
+              controller: _scrollToTop,
+              inNavigation: visible && _nativeScrollToTop,
+              child: widget.child,
+            ),
+            if (visible && media.padding.bottom > 0)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: math.min(size.height, media.padding.bottom + 16),
+                child: const IosBottomScrim(),
+              ),
+            if (visible)
+              IosSystemTabs(
+                selectedIndex: widget.selectedIndex,
+                onSelected: (index) {
+                  if (index == 0 && widget.selectedIndex == 0) {
+                    _scrollToTop.scrollToTop();
+                  } else {
+                    widget.onSelected(index);
+                  }
+                },
+                onSearch: widget.onSearch,
+                onScrollToTop: widget.selectedIndex == 0
+                    ? _scrollToTop.scrollToTop
+                    : null,
+                onScrollToTopPlacement: _setScrollToTopPlacement,
+              ),
+          ],
+        );
+      }
+
+      // Keep the Material outlet in one position through window resizes.
       final itemHeight = media.textScaler.scale(58).clamp(58.0, 80.0);
-      final barHeight = media.textScaler.scale(64).clamp(64.0, 88.0);
-      final sideTop = belowSystemRegion
-          ? systemRegions.fold(
-              media.padding.top,
-              (value, rect) => math.max(value, rect.bottom),
-            )
-          : media.padding.top;
-      final baseVerticalExtent = itemHeight * 4 + 68;
+      final verticalExtent = itemHeight * 4 + 68;
       final vertical =
-          (AdaptiveLayout.useSideNavigation(size) || belowSystemRegion) &&
-          size.height - sideTop - media.padding.bottom >=
-              baseVerticalExtent + 24;
-      final integratedScrollToTop =
-          ios &&
-          vertical &&
-          widget.selectedIndex == 0 &&
-          size.height - sideTop - media.padding.bottom >=
-              baseVerticalExtent + 68 + 24;
-      final verticalExtent =
-          baseVerticalExtent + (integratedScrollToTop ? 68 : 0);
+          AdaptiveLayout.useSideNavigation(size) &&
+          size.height - media.padding.vertical >= verticalExtent + 24;
       const railWidth = 64.0;
-      const railGap = 8.0;
-      // UIKit's status/camera column has its own center, which need not be
-      // 40 points from the screen edge. Align every navigation control to it.
-      final railLeft = systemCenter != null
-          ? (systemCenter - railWidth / 2)
-                .clamp(
-                  railGap,
-                  math.max(railGap, size.width - railWidth - railGap),
-                )
-                .toDouble()
-          : media.padding.left + railGap;
-      final bottomInset = media.viewInsets.bottom > 0
-          ? 0.0
-          : (ios
-                ? barHeight + 20 + media.padding.bottom
-                : 80 + media.padding.bottom);
-      final contentInsets = EdgeInsets.only(
-        left: vertical && !trailing
-            ? math.max(media.padding.left, railLeft + railWidth + railGap)
-            : media.padding.left,
-        right: vertical && trailing
-            ? math.max(media.padding.right, size.width - railLeft + railGap)
-            : media.padding.right,
-        bottom: vertical ? media.padding.bottom : bottomInset,
+      final railLeft = media.padding.left + 8;
+      final layoutInsets = EdgeInsets.only(
+        left: vertical ? railLeft + railWidth + 8 : media.padding.left,
+        right: media.padding.right,
+        bottom: vertical
+            ? media.padding.bottom
+            : (media.viewInsets.bottom > 0 ? 0 : 80 + media.padding.bottom),
       );
-      // Lists scroll behind the bottom material; only their final items need
-      // padding to clear the floating navigation and home gesture area.
-      final scrollBottomInset = ios ? contentInsets.bottom : 0.0;
-      final layoutInsets = ios ? EdgeInsets.zero : contentInsets;
       final pane = Rect.fromLTWH(
         layoutInsets.left,
         0,
@@ -129,18 +111,8 @@ class _AdaptiveNavigationScaffoldState
       );
       final contentMedia = media.copyWith(
         size: pane.size,
-        padding: EdgeInsets.fromLTRB(
-          ios ? contentInsets.left : 0,
-          media.padding.top,
-          ios ? contentInsets.right : 0,
-          scrollBottomInset,
-        ),
-        viewPadding: EdgeInsets.fromLTRB(
-          ios ? contentInsets.left : 0,
-          media.viewPadding.top,
-          ios ? contentInsets.right : 0,
-          ios ? math.max(scrollBottomInset, media.viewPadding.bottom) : 0,
-        ),
+        padding: EdgeInsets.only(top: media.padding.top),
+        viewPadding: EdgeInsets.only(top: media.viewPadding.top),
         displayFeatures: [
           for (final feature in media.displayFeatures)
             if (feature.bounds.right >= pane.left &&
@@ -162,58 +134,27 @@ class _AdaptiveNavigationScaffoldState
             Positioned.fill(
               child: Padding(
                 padding: layoutInsets,
-                child: MediaQuery(
-                  data: contentMedia,
-                  child: NavigationScrollToTop(
-                    controller: _scrollToTop,
-                    inNavigation: integratedScrollToTop,
-                    child: widget.child,
-                  ),
-                ),
+                child: MediaQuery(data: contentMedia, child: widget.child),
               ),
             ),
-            if (ios && scrollBottomInset > 0 && media.viewInsets.bottom == 0)
+            if (media.viewInsets.bottom == 0)
               Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: math.min(size.height, scrollBottomInset + 16),
-                child: const IosBottomScrim(),
-              ),
-            // Remove the platform view, rather than only clipping/offstaging it:
-            // UIKit glass can otherwise draw its edges above a sliding route.
-            if (media.viewInsets.bottom == 0 &&
-                (!ios || RouteVisibility.nativeControlsVisibleOf(context)))
-              Positioned(
-                left: vertical ? railLeft : media.padding.left + (ios ? 16 : 0),
-                right: vertical ? null : media.padding.right + (ios ? 16 : 0),
+                left: vertical ? railLeft : media.padding.left,
+                right: vertical ? null : media.padding.right,
                 top: vertical
-                    ? sideTop +
-                          (belowSystemRegion
-                              ? 12
-                              : math.max(
-                                  12,
-                                  (size.height -
-                                          sideTop -
-                                          media.padding.bottom -
-                                          verticalExtent) /
-                                      2,
-                                ))
+                    ? media.padding.top +
+                          math.max(
+                            12,
+                            (size.height -
+                                    media.padding.vertical -
+                                    verticalExtent) /
+                                2,
+                          )
                     : null,
-                bottom: vertical ? null : media.padding.bottom + (ios ? 10 : 0),
+                bottom: vertical ? null : media.padding.bottom,
                 width: vertical ? railWidth : null,
-                height: vertical ? verticalExtent : (ios ? barHeight : 80),
-                child: ios
-                    ? IosGlassNavigation(
-                        vertical: vertical,
-                        selectedIndex: widget.selectedIndex,
-                        onSelected: widget.onSelected,
-                        onSearch: widget.onSearch,
-                        onScrollToTop: integratedScrollToTop
-                            ? _scrollToTop.scrollToTop
-                            : null,
-                      )
-                    : _materialNavigation(context, vertical),
+                height: vertical ? verticalExtent : 80,
+                child: _materialNavigation(context, vertical),
               ),
           ],
         ),

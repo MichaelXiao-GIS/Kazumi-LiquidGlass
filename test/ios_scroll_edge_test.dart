@@ -3,11 +3,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/bean/card/bangumi_card.dart';
 import 'package:kazumi/bean/widget/ios_bottom_scrim.dart';
-import 'package:kazumi/bean/widget/ios_glass.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/pages/menu/adaptive_navigation_scaffold.dart';
 import 'package:kazumi/pages/popular/popular_controller.dart';
@@ -213,6 +213,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'recommendation moves its only return-to-top control to the system rail',
+    (tester) async {
+      await _mount(tester, PopularPage(controller: _LocalPopularController()));
+      const channel = MethodChannel('com.predidit.kazumi/tabs');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      Future<void> send(String event, [Object? argument]) async {
+        await messenger.handlePlatformMessage(
+          channel.name,
+          channel.codec.encodeMethodCall(MethodCall(event, argument)),
+          null,
+        );
+        await tester.pump();
+      }
+
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      final button = find.byTooltip('返回顶部');
+      expect(button, findsOneWidget);
+      position.jumpTo(300);
+      await send('scrollToTopPlacement', true);
+      expect(button, findsNothing);
+      expect(position.pixels, 300);
+      await send('scrollToTop');
+      await tester.pumpAndSettle();
+      expect(position.pixels, 0);
+      position.jumpTo(300);
+      await send('select', 0);
+      await tester.pumpAndSettle();
+      expect(position.pixels, 0);
+      await send('scrollToTopPlacement', false);
+      expect(button, findsOneWidget);
+      position.jumpTo(300);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(position.pixels, 0);
+    },
+  );
+
   for (final size in [const Size(900, 650), const Size(390, 844)]) {
     testWidgets('popular final row clears the bottom controls at $size', (
       tester,
@@ -232,24 +272,15 @@ void main() {
       final lastCard = find.byWidgetPredicate(
         (widget) => widget is BangumiCardV && widget.bangumiItem.id == 47,
       );
-      final bottomInset = size.width > 600 ? 34 : 118;
+      const bottomInset = 34;
       expect(lastCard, findsOneWidget);
       expect(
         tester.getRect(lastCard).bottom,
         lessThanOrEqualTo(size.height - bottomInset),
       );
       expect(find.text('番组47'), findsOneWidget);
-      final navigation = find.byType(IosGlassNavigation);
       final backToTop = find.byTooltip('返回顶部');
-      if (size.width > 600) {
-        expect(find.byType(FloatingActionButton), findsNothing);
-        expect(
-          find.descendant(of: navigation, matching: backToTop),
-          findsOneWidget,
-        );
-      } else {
-        expect(find.byType(FloatingActionButton), findsOneWidget);
-      }
+      expect(find.byType(FloatingActionButton), findsOneWidget);
       await tester.tap(backToTop);
       await tester.pumpAndSettle();
       expect(scrollable.position.pixels, 0);

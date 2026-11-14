@@ -4,8 +4,7 @@ class NavigationScrollToTopController extends ChangeNotifier {
   void scrollToTop() => notifyListeners();
 }
 
-/// Connect a page's scroll position to the navigation's utility button without
-/// moving ownership of that position out of the page.
+/// Lets the active page handle another tap on the recommendation tab.
 class NavigationScrollToTop extends InheritedWidget {
   const NavigationScrollToTop({
     super.key,

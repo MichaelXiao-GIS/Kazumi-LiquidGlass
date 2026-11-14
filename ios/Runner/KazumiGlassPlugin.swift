@@ -10,8 +10,6 @@ final class KazumiGlassPlugin: NSObject, FlutterPlugin, FlutterStreamHandler {
 
     static func register(with registrar: FlutterPluginRegistrar) {
         let plugin = KazumiGlassPlugin(registrar: registrar)
-        registrar.register(KazumiGlassFactory(messenger: registrar.messenger()),
-                           withId: "com.predidit.kazumi/glass")
         FlutterEventChannel(name: "com.predidit.kazumi/scene",
                             binaryMessenger: registrar.messenger()).setStreamHandler(plugin)
     }
@@ -93,420 +91,273 @@ private final class KazumiSceneProbe: UIView {
     }
 }
 
-private final class KazumiGlassFactory: NSObject, FlutterPlatformViewFactory {
-    let messenger: FlutterBinaryMessenger
-    init(messenger: FlutterBinaryMessenger) { self.messenger = messenger }
-    func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol { FlutterStandardMessageCodec.sharedInstance() }
-    func create(withFrame frame: CGRect, viewIdentifier viewId: Int64, arguments args: Any?) -> FlutterPlatformView {
-        KazumiGlassView(frame: frame, id: viewId,
-                        configuration: args as? [String: Any] ?? [:], messenger: messenger)
+final class KazumiSceneDelegate: FlutterSceneDelegate {
+    override func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
+                        options connectionOptions: UIScene.ConnectionOptions) {
+        // Let Flutter register the storyboard's implicit engine with this scene first.
+        super.scene(scene, willConnectTo: session, options: connectionOptions)
+        guard let window, let flutter = window.rootViewController as? FlutterViewController else { return }
+        // Keep URL and foreground/background delivery associated with this scene
+        // even while UIKit is transitioning between the tab content views.
+        registerSceneLifeCycle(with: flutter.engine)
+        window.rootViewController = nil
+        let host = KazumiTabBarController(content: flutter)
+        window.rootViewController = host
+        host.connect(to: flutter.binaryMessenger)
     }
 }
 
-private final class KazumiGlassView: NSObject, FlutterPlatformView {
-    private let content: UIView
-    private let channel: FlutterMethodChannel
-    init(frame: CGRect, id: Int64, configuration: [String: Any], messenger: FlutterBinaryMessenger) {
-        channel = FlutterMethodChannel(name: "com.predidit.kazumi/glass/\(id)", binaryMessenger: messenger)
-        if configuration["kind"] as? String == "navigation" {
-            content = KazumiNavigationView(frame: frame)
-        } else {
-            let material = KazumiMaterialView(frame: frame)
-            material.layer.cornerRadius = configuration["radius"] as? CGFloat ?? 0
-            material.clipsToBounds = true
-            content = material
+// A single Flutter engine owns all four route stacks. Keep its controller alive
+// and attach it to the incoming tab before UIKit displays that tab.
+private final class KazumiTabPage: UIViewController {
+    weak var host: KazumiTabBarController?
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        host?.attachContent(to: self)
+    }
+
+    // The tab controller forwards its own appearance transitions to Flutter.
+    // Moving between tabs within a single Flutter page must not pause the engine.
+    override var shouldAutomaticallyForwardAppearanceMethods: Bool { false }
+}
+
+final class KazumiTabBarController: UITabBarController, UITabBarControllerDelegate {
+    private let content: UIViewController
+    private let pages = (0..<4).map { _ in KazumiTabPage() }
+    private let searchPage = UIViewController()
+    private var channel: FlutterMethodChannel?
+    private var requestsScrollToTop = false
+    private var lastPlacement: Bool?
+    private lazy var scrollToTop: UIButton = {
+        let button = UIButton(type: .system)
+        if #available(iOS 26.0, *) {
+            var style = UIButton.Configuration.glass()
+            style.cornerStyle = .capsule
+            style.image = UIImage(systemName: "arrow.up")
+            button.configuration = style
         }
-        super.init()
-        apply(configuration)
-        if let navigation = content as? KazumiNavigationView {
-            navigation.onSelect = { [weak self] index in self?.channel.invokeMethod("select", arguments: index) }
-            navigation.onSearch = { [weak self] in self?.channel.invokeMethod("search", arguments: nil) }
-            navigation.onScrollToTop = { [weak self] in self?.channel.invokeMethod("scrollToTop", arguments: nil) }
-        }
-        channel.setMethodCallHandler { [weak self] call, result in
-            if call.method == "hide" {
-                (self?.content as? KazumiNavigationView)?.cancelScrub()
-                self?.content.isHidden = true
-                self?.content.isUserInteractionEnabled = false
-                self?.content.accessibilityElementsHidden = true
-                result(nil)
-                return
+        button.accessibilityLabel = "返回顶部"
+        button.accessibilityHint = "滚动推荐列表到最上方"
+        button.isHidden = true
+        button.addTarget(self, action: #selector(scrollToTopTapped), for: .touchUpInside)
+        return button
+    }()
+    var onSelect: ((Int) -> Void)?
+    var onSearch: (() -> Void)?
+
+    init(content: UIViewController) {
+        self.content = content
+        super.init(nibName: nil, bundle: nil)
+        let destinations = [
+            ("recommend", "推荐", "play.rectangle"), ("timeline", "时间表", "calendar"),
+            ("following", "追番", "heart"), ("profile", "我的", "person.crop.circle")
+        ]
+        pages.forEach { $0.host = self }
+        delegate = self
+        if #available(iOS 18.0, *) {
+            let routes = zip(destinations, pages).map { item, page in
+                UITab(title: item.1, image: UIImage(systemName: item.2), identifier: item.0) { _ in page }
             }
-            guard call.method == "update", let config = call.arguments as? [String: Any] else {
+            let search = UISearchTab { [searchPage] _ in searchPage }
+            search.title = "搜索番剧"
+            tabs = routes + [search]
+            if #available(iOS 27.0, *) { prominentTabIdentifier = search.identifier }
+        } else {
+            for (index, item) in destinations.enumerated() {
+                pages[index].tabBarItem = UITabBarItem(title: item.1, image: UIImage(systemName: item.2), tag: index)
+            }
+            searchPage.tabBarItem = UITabBarItem(title: "搜索番剧", image: UIImage(systemName: "magnifyingglass"), tag: 4)
+            viewControllers = pages + [searchPage]
+        }
+        view.addSubview(scrollToTop)
+        attachContent(to: pages[0])
+        setChromeVisible(false)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func connect(to messenger: FlutterBinaryMessenger) {
+        let bridge = FlutterMethodChannel(name: "com.predidit.kazumi/tabs", binaryMessenger: messenger)
+        channel = bridge
+        onSelect = { bridge.invokeMethod("select", arguments: $0) }
+        onSearch = { bridge.invokeMethod("search", arguments: nil) }
+        bridge.setMethodCallHandler { [weak self] call, result in
+            switch call.method {
+            case "update":
+                if let config = call.arguments as? [String: Any] { self?.update(config) }
+            case "hide":
+                self?.setChromeVisible(false)
+            default:
                 result(FlutterMethodNotImplemented); return
             }
-            self?.apply(config)
             result(nil)
         }
     }
-    deinit { channel.setMethodCallHandler(nil) }
-    func view() -> UIView { content }
-    private func apply(_ configuration: [String: Any]) {
-        content.overrideUserInterfaceStyle = configuration["dark"] as? Bool == true ? .dark : .light
-        (content as? KazumiNavigationView)?.configure(configuration)
-    }
-}
 
-private final class KazumiMaterialView: UIVisualEffectView {
-    private var materialEffect: UIVisualEffect?
+    deinit { channel?.setMethodCallHandler(nil) }
 
-    init(frame: CGRect, interactive: Bool = false, clear: Bool = false) {
-        // The OS owns optical rendering, the iOS 27 transparency slider and
-        // accessibility fallbacks. Do not emulate glass with a blur shader.
-        if #available(iOS 26.0, *) {
-            let glass = UIGlassEffect(style: clear ? .clear : .regular)
-            glass.isInteractive = interactive
-            super.init(effect: glass)
-        } else {
-            super.init(effect: UIBlurEffect(style: .systemMaterial))
+    fileprivate func attachContent(to page: UIViewController) {
+        guard content.parent !== page else { return }
+        if content.parent != nil {
+            content.willMove(toParent: nil)
+            content.view.removeFromSuperview()
+            content.removeFromParent()
         }
-        self.frame = frame
-        materialEffect = effect
-        layer.cornerCurve = .continuous
+        page.addChild(content)
+        content.view.frame = page.view.bounds
+        content.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        page.view.addSubview(content.view)
+        content.didMove(toParent: page)
     }
-    func showMaterial(_ visible: Bool) { effect = visible ? materialEffect : nil }
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
-}
 
-final class KazumiNavigationView: UIView, UIGestureRecognizerDelegate {
-    private let material = KazumiMaterialView(frame: .zero, interactive: true)
-    private let searchMaterial = KazumiMaterialView(frame: .zero, interactive: true)
-    private let scrollTopMaterial = KazumiMaterialView(frame: .zero, interactive: true)
-    private let scrollTop = UIButton(type: .system)
-    private var showsScrollTop = false
-    private let selection = UIView()
-    // Glass samples the backdrop only. Icons and labels stay above the lens so
-    // dragging never blurs the controls the user is trying to select.
-    private let lens = KazumiMaterialView(frame: .zero, interactive: true, clear: true)
-    private let tabContent = UIView()
-    private let feedback = UISelectionFeedbackGenerator()
-    private lazy var scrub = UIPanGestureRecognizer(target: self, action: #selector(scrubTabs(_:)))
-    private var dragging = false
-    private var preview: Int?
-    private var dragPoint = CGPoint.zero
-    private var dragSpeed: CGFloat = 0
-    private var lastSize = CGSize.zero
-    private var scrubRevision = 0
-    private var pendingReset: DispatchWorkItem?
-    private let search = UIButton(type: .system)
-    private var buttons: [KazumiTabControl] = []
-    private var vertical = false
-    private var selected = 0
-    var onSelect: ((Int) -> Void)?
-    var onSearch: (() -> Void)?
-    var onScrollToTop: (() -> Void)?
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        addSubview(material)
-        addSubview(searchMaterial)
-        addSubview(scrollTopMaterial)
-        selection.backgroundColor = UIColor.secondaryLabel.withAlphaComponent(0.12)
-        selection.layer.cornerCurve = .continuous
-        material.contentView.addSubview(selection)
-        let labels = ["推荐", "时间表", "追番", "我的"]
-        let symbols = ["play.rectangle", "calendar", "heart", "person.crop.circle"]
-        for index in labels.indices {
-            let button = KazumiTabControl(title: labels[index], symbol: symbols[index])
-            button.tag = index
-            button.addTarget(self, action: #selector(selectTab(_:)), for: .touchUpInside)
-            buttons.append(button)
-            tabContent.addSubview(button)
-        }
-        search.setImage(UIImage(systemName: "magnifyingglass", withConfiguration:
-            UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)), for: .normal)
-        search.accessibilityLabel = "搜索番剧"
-        search.addTarget(self, action: #selector(searchTapped), for: .touchUpInside)
-        searchMaterial.contentView.addSubview(search)
-        scrollTop.setImage(UIImage(systemName: "arrow.up", withConfiguration:
-            UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)), for: .normal)
-        scrollTop.accessibilityLabel = "返回顶部"
-        scrollTop.accessibilityHint = "滚动推荐列表到最上方"
-        scrollTop.addTarget(self, action: #selector(scrollTopTapped), for: .touchUpInside)
-        scrollTopMaterial.contentView.addSubview(scrollTop)
-        lens.isUserInteractionEnabled = false
-        lens.accessibilityIdentifier = "Kazumi.tabScrubLens"
-        lens.accessibilityElementsHidden = true
-        lens.clipsToBounds = true
-        lens.isHidden = true
-        addSubview(lens)
-        tabContent.accessibilityIdentifier = "Kazumi.tabContent"
-        addSubview(tabContent)
-        scrub.delegate = self
-        scrub.maximumNumberOfTouches = 1
-        scrub.cancelsTouchesInView = true
-        tabContent.addGestureRecognizer(scrub)
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        content.beginAppearanceTransition(true, animated: animated)
     }
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        content.endAppearanceTransition()
+    }
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        content.beginAppearanceTransition(false, animated: animated)
+    }
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        content.endAppearanceTransition()
+    }
 
-    func configure(_ config: [String: Any]) {
-        let previousSelection = selected
-        layoutIfNeeded()
-        let nextVertical = config["vertical"] as? Bool ?? false
-        if nextVertical != vertical { cancelScrub() }
-        vertical = nextVertical
-        showsScrollTop = vertical && (config["scrollToTop"] as? Bool ?? false)
-        scrollTopMaterial.isHidden = !showsScrollTop
-        scrollTopMaterial.accessibilityElementsHidden = !showsScrollTop
-        scrollTopMaterial.showMaterial(showsScrollTop)
-        selected = min(3, max(0, config["selectedIndex"] as? Int ?? 0))
-        if !dragging {
-            pendingReset?.cancel()
-            preview = nil
-        } else if selected != previousSelection {
-            cancelScrub()
-        }
+    override var childForStatusBarStyle: UIViewController? { content }
+    override var childForStatusBarHidden: UIViewController? { content }
+    override var childForHomeIndicatorAutoHidden: UIViewController? { content }
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask { content.supportedInterfaceOrientations }
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        content.preferredInterfaceOrientationForPresentation
+    }
+
+    func update(_ config: [String: Any]) {
+        overrideUserInterfaceStyle = config["dark"] as? Bool == true ? .dark : .light
         if let argb = config["tint"] as? NSNumber {
-            let value = argb.uint32Value
-            tintColor = UIColor(red: CGFloat((value >> 16) & 255) / 255,
-                                green: CGFloat((value >> 8) & 255) / 255,
-                                blue: CGFloat(value & 255) / 255, alpha: 1)
+            let rgb = argb.uint32Value
+            view.tintColor = UIColor(red: CGFloat((rgb >> 16) & 255) / 255,
+                                       green: CGFloat((rgb >> 8) & 255) / 255,
+                                       blue: CGFloat(rgb & 255) / 255, alpha: 1)
+            tabBar.tintColor = view.tintColor
         }
-        updateSelection()
-        setNeedsLayout()
-        if previousSelection != selected && !UIAccessibility.isReduceMotionEnabled {
-            UIView.animate(withDuration: 0.28, delay: 0, usingSpringWithDamping: 0.9,
-                           initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-                self.layoutIfNeeded()
+        if let index = config["selectedIndex"] as? Int, pages.indices.contains(index) {
+            if #available(iOS 18.0, *) {
+                if selectedTab !== tabs[index] { selectedTab = tabs[index] }
+            } else if selectedIndex != index {
+                selectedIndex = index
             }
         }
+        requestsScrollToTop = config["scrollToTop"] as? Bool == true && config["selectedIndex"] as? Int == 0
+        lastPlacement = nil
+        setChromeVisible(config["visible"] as? Bool ?? true)
+        view.setNeedsLayout()
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        if lastSize != bounds.size {
-            lastSize = bounds.size
-            cancelScrub()
+    @objc private func scrollToTopTapped() {
+        channel?.invokeMethod("scrollToTop", arguments: nil)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard #available(iOS 27.1, *), requestsScrollToTop, !isTabBarHidden,
+              let window = view.window, let page = content.parent else {
+            publishScrollToTop(frame: nil)
+            return
         }
-        let gap: CGFloat = 10
-        let searchExtent: CGFloat = min(56, vertical ? bounds.width : bounds.height)
-        let scrollTopSpace: CGFloat = showsScrollTop ? 68 : 0
-        if vertical {
-            material.frame = CGRect(x: 0, y: 0, width: bounds.width,
-                                    height: max(0, bounds.height - searchExtent - gap - scrollTopSpace))
-            searchMaterial.frame = CGRect(x: (bounds.width - searchExtent) / 2,
-                y: bounds.height - searchExtent - scrollTopSpace, width: searchExtent, height: searchExtent)
-            scrollTopMaterial.frame = CGRect(x: (bounds.width - searchExtent) / 2,
-                y: bounds.height - searchExtent, width: searchExtent, height: searchExtent)
+
+        let bounds = view.bounds
+        let guide = contentLayoutGuide.layoutFrame
+        let safe = content.view.convert(content.view.safeAreaLayoutGuide.layoutFrame, to: view)
+        let body = guide.intersection(safe)
+        guard !body.isNull, body.width > bounds.width / 2 else {
+            publishScrollToTop(frame: nil)
+            return
+        }
+        let edge = traitCollection.verticalBarEdge
+        guard edge == .leading || edge == .trailing else {
+            publishScrollToTop(frame: nil)
+            return
+        }
+        let onLeft = (edge == .leading) == (view.effectiveUserInterfaceLayoutDirection == .leftToRight)
+        let width = onLeft ? body.minX - bounds.minX : bounds.maxX - body.maxX
+        guard width >= 52 else {
+            publishScrollToTop(frame: nil)
+            return
+        }
+        let x = onLeft ? bounds.minX : bounds.maxX - width
+        let gutter = CGRect(x: x, y: bounds.minY, width: width, height: bounds.height)
+        let reserved = (view.reservedRegions(kind: .occlusion) + view.reservedRegions(kind: .division))
+            .filter(\.isActive).map(\.frame)
+        // Hit testing the scene's public view hierarchy accounts for the system's
+        // floating search and tab controls even when the bar spans the entire window.
+        scrollToTop.isUserInteractionEnabled = false
+        let frame = Self.scrollToTopFrame(in: gutter, avoiding: reserved) { point in
+            let hit = window.hitTest(view.convert(point, to: window), with: nil)
+            return hit?.isDescendant(of: page.view) == true
+        }
+        scrollToTop.isUserInteractionEnabled = true
+        publishScrollToTop(frame: frame)
+    }
+
+    static func scrollToTopFrame(in gutter: CGRect, avoiding reserved: [CGRect],
+                                 isFree: (CGPoint) -> Bool) -> CGRect? {
+        let size: CGFloat = 48
+        let top = gutter.minY + 12
+        let bottom = gutter.maxY - size - 12
+        guard gutter.width >= size + 4, bottom >= top else { return nil }
+        for y in stride(from: bottom, through: top, by: -8) {
+            let frame = CGRect(x: gutter.midX - size / 2, y: y, width: size, height: size)
+            let padded = frame.insetBy(dx: -2, dy: -4)
+            if reserved.contains(where: { $0.intersects(padded) }) { continue }
+            let xs = [padded.minX, padded.midX, padded.maxX]
+            let ys = [padded.minY, padded.midY, padded.maxY]
+            if ys.allSatisfy({ y in xs.allSatisfy { isFree(CGPoint(x: $0, y: y)) } }) { return frame }
+        }
+        return nil
+    }
+
+    private func publishScrollToTop(frame: CGRect?) {
+        if let frame {
+            scrollToTop.frame = frame
+            if view.subviews.last !== scrollToTop { view.bringSubviewToFront(scrollToTop) }
+        }
+        scrollToTop.isHidden = frame == nil
+        let placed = frame != nil
+        if lastPlacement != placed {
+            lastPlacement = placed
+            channel?.invokeMethod("scrollToTopPlacement", arguments: placed)
+        }
+    }
+
+    private func setChromeVisible(_ visible: Bool) {
+        if !visible { publishScrollToTop(frame: nil) }
+        if #available(iOS 18.0, *) {
+            if isTabBarHidden == visible { setTabBarHidden(!visible, animated: false) }
         } else {
-            material.frame = CGRect(x: 0, y: 0, width: max(0, bounds.width - searchExtent - gap), height: bounds.height)
-            searchMaterial.frame = CGRect(x: bounds.width - searchExtent,
-                y: (bounds.height - searchExtent) / 2, width: searchExtent, height: searchExtent)
-        }
-        material.layer.cornerRadius = min(material.bounds.width, material.bounds.height) / 2
-        searchMaterial.layer.cornerRadius = searchExtent / 2
-        material.clipsToBounds = true
-        searchMaterial.clipsToBounds = true
-        tabContent.frame = material.frame
-        search.frame = searchMaterial.bounds
-        scrollTopMaterial.layer.cornerRadius = searchExtent / 2
-        scrollTopMaterial.clipsToBounds = true
-        scrollTop.frame = scrollTopMaterial.bounds
-        for (index, button) in buttons.enumerated() {
-            let tile = tabFrame(at: index)
-            // Bounds and center remain stable while the preview is magnified.
-            button.bounds.size = tile.size
-            button.center = CGPoint(x: tile.midX, y: tile.midY)
-        }
-        selection.frame = tabFrame(at: preview ?? selected)
-        selection.layer.cornerRadius = min(selection.bounds.width, selection.bounds.height) / 2
-        if dragging { positionLens() }
-    }
-
-    private func tabFrame(at index: Int) -> CGRect {
-        let inner = material.bounds.insetBy(dx: 5, dy: 5)
-        return vertical
-            ? CGRect(x: inner.minX, y: inner.minY + CGFloat(index) * inner.height / 4,
-                     width: inner.width, height: inner.height / 4)
-            : CGRect(x: inner.minX + CGFloat(index) * inner.width / 4, y: inner.minY,
-                     width: inner.width / 4, height: inner.height)
-    }
-
-    private func updateSelection() {
-        for (index, button) in buttons.enumerated() {
-            button.isSelected = index == selected
-            button.tintColor = index == (preview ?? selected) ? tintColor : .secondaryLabel
-            button.transform = dragging && index == preview && !UIAccessibility.isReduceMotionEnabled
-                ? CGAffineTransform(scaleX: 1.08, y: 1.08) : .identity
+            tabBar.isHidden = !visible
         }
     }
 
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        if window == nil { cancelScrub() }
+    @available(iOS 18.0, *)
+    func tabBarController(_ tabBarController: UITabBarController, shouldSelectTab tab: UITab) -> Bool {
+        if tab is UISearchTab { onSearch?(); return false }
+        // UIKit may omit didSelect for a reselect. Emit once at the selection decision.
+        guard let index = tabs.firstIndex(of: tab), pages.indices.contains(index) else { return false }
+        onSelect?(index)
+        return true
     }
 
-    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === scrub, !UIAccessibility.isVoiceOverRunning else { return false }
-        let movement = scrub.translation(in: material)
-        return vertical ? abs(movement.y) > abs(movement.x) : abs(movement.x) > abs(movement.y)
-    }
-
-    @objc private func scrubTabs(_ gesture: UIPanGestureRecognizer) {
-        handleScrub(state: gesture.state, at: gesture.location(in: material),
-                    velocity: gesture.velocity(in: material))
-    }
-
-    // Kept separate from UIKit's recognizer so cancellation, layout changes and
-    // route confirmation can also be exercised by native regression tests.
-    func handleScrub(state: UIGestureRecognizer.State, at point: CGPoint, velocity: CGPoint = .zero) {
-        switch state {
-        case .began:
-            pendingReset?.cancel()
-            scrubRevision += 1
-            lens.layer.removeAllAnimations()
-            selection.layer.removeAllAnimations()
-            dragging = true
-            selection.alpha = 0
-            lens.isHidden = false
-            lens.showMaterial(true)
-            feedback.prepare()
-            moveScrub(to: point, velocity: velocity)
-        case .changed:
-            moveScrub(to: point, velocity: velocity)
-        case .ended:
-            finishScrub(commit: material.bounds.contains(point) ? preview : nil)
-        case .cancelled, .failed:
-            finishScrub(commit: nil)
-        default: break
-        }
-    }
-
-    private func moveScrub(to point: CGPoint, velocity: CGPoint) {
-        guard dragging else { return }
-        dragPoint = point
-        dragSpeed = vertical ? abs(velocity.y) : abs(velocity.x)
-        let nearest = buttons.indices.min {
-            let a = buttons[$0].center, b = buttons[$1].center
-            return vertical ? abs(a.y - point.y) < abs(b.y - point.y)
-                            : abs(a.x - point.x) < abs(b.x - point.x)
-        } ?? selected
-        if preview != nearest {
-            preview = nearest
-            feedback.selectionChanged()
-            feedback.prepare()
-        }
-        updateSelection()
-        positionLens()
-    }
-
-    private func positionLens() {
-        let tile = selection.bounds.size
-        let stretch = UIAccessibility.isReduceMotionEnabled ? 0 : min(12, dragSpeed / 160)
-        let width = min(material.bounds.width - 2, tile.width + (vertical ? 6 : 8 + stretch))
-        let height = min(material.bounds.height - 2, tile.height + (vertical ? 8 + stretch : 6))
-        guard width > 0, height > 0 else { return }
-        let center = CGPoint(
-            x: vertical ? material.bounds.midX : min(material.bounds.width - width / 2, max(width / 2, dragPoint.x)),
-            y: vertical ? min(material.bounds.height - height / 2, max(height / 2, dragPoint.y)) : material.bounds.midY)
-        lens.frame = material.convert(CGRect(x: center.x - width / 2, y: center.y - height / 2,
-                                             width: width, height: height), to: self)
-        lens.layer.cornerRadius = min(width, height) / 2
-    }
-
-    private func finishScrub(commit target: Int?) {
-        guard dragging else { return }
-        dragging = false
-        preview = target
-        let revision = scrubRevision
-        let destination = material.convert(tabFrame(at: target ?? selected), to: self)
-        updateSelection()
-        setNeedsLayout()
-        let settle = {
-            self.layoutIfNeeded()
-            self.selection.alpha = 1
-            self.lens.frame = destination
-            self.lens.layer.cornerRadius = min(destination.width, destination.height) / 2
-            self.lens.showMaterial(false)
-        }
-        if UIAccessibility.isReduceMotionEnabled {
-            settle()
-            lens.isHidden = true
-        } else {
-            UIView.animate(withDuration: 0.32, delay: 0, usingSpringWithDamping: 0.78,
-                           initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction],
-                           animations: settle) { [weak self] _ in
-                guard let self, self.scrubRevision == revision else { return }
-                self.lens.isHidden = true
-            }
-        }
-        if let target, target != selected {
-            // Flutter remains the routing authority. Roll back if the route
-            // cannot confirm selection, rather than leaving a false highlight.
-            let reset = DispatchWorkItem { [weak self] in
-                guard let self, self.scrubRevision == revision, !self.dragging else { return }
-                self.preview = nil
-                self.updateSelection()
-                self.setNeedsLayout()
-            }
-            pendingReset = reset
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: reset)
-            onSelect?(target)
-        } else {
-            preview = nil
-        }
-    }
-
-    func cancelScrub() {
-        pendingReset?.cancel()
-        pendingReset = nil
-        scrubRevision += 1
-        dragging = false
-        preview = nil
-        lens.layer.removeAllAnimations()
-        selection.layer.removeAllAnimations()
-        lens.isHidden = true
-        lens.showMaterial(false)
-        selection.alpha = 1
-        updateSelection()
-        setNeedsLayout()
-    }
-    @objc private func selectTab(_ sender: KazumiTabControl) {
-        onSelect?(sender.tag) // Flutter confirms selection after routing succeeds.
-    }
-    @objc private func searchTapped() { onSearch?() }
-    @objc private func scrollTopTapped() { onScrollToTop?() }
-}
-
-private final class KazumiTabControl: UIControl {
-    private let image = UIImageView()
-    private let label = UILabel()
-    private let symbol: String
-    init(title: String, symbol: String) {
-        self.symbol = symbol
-        super.init(frame: .zero)
-        isAccessibilityElement = true
-        accessibilityLabel = title
-        label.text = title
-        label.textAlignment = .center
-        label.font = UIFontMetrics(forTextStyle: .caption2).scaledFont(for: .systemFont(ofSize: 10, weight: .semibold))
-        label.adjustsFontForContentSizeCategory = true
-        label.adjustsFontSizeToFitWidth = true
-        label.minimumScaleFactor = 0.85
-        image.contentMode = .scaleAspectFit
-        addSubview(image)
-        addSubview(label)
-        updateAppearance()
-    }
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
-    override var isSelected: Bool { didSet { updateAppearance() } }
-    override var isHighlighted: Bool { didSet { alpha = isHighlighted ? 0.55 : 1 } }
-    override func tintColorDidChange() { super.tintColorDidChange(); label.textColor = tintColor }
-    private func updateAppearance() {
-        let filled = ["play.rectangle": "play.rectangle.fill", "heart": "heart.fill",
-                      "person.crop.circle": "person.crop.circle.fill"]
-        let name = isSelected ? (filled[symbol] ?? symbol) : symbol
-        image.image = UIImage(systemName: name, withConfiguration:
-            UIImage.SymbolConfiguration(pointSize: 22, weight: .medium))
-        accessibilityTraits = isSelected ? [.button, .selected] : [.button]
-    }
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let textHeight = min(22, label.font.lineHeight)
-        let total: CGFloat = 24 + 3 + textHeight
-        let top = (bounds.height - total) / 2
-        image.frame = CGRect(x: 0, y: top, width: bounds.width, height: 24)
-        label.frame = CGRect(x: 1, y: top + 27, width: bounds.width - 2, height: textHeight)
+    func tabBarController(_ tabBarController: UITabBarController, shouldSelect viewController: UIViewController) -> Bool {
+        // Modern tabs use the UITab delegate method above.
+        if #available(iOS 18.0, *) { return true }
+        if viewController === searchPage { onSearch?(); return false }
+        guard let index = pages.firstIndex(where: { $0 === viewController }) else { return false }
+        onSelect?(index)
+        return true
     }
 }
