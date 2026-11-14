@@ -8,14 +8,41 @@ class RunnerTests: XCTestCase {
         let gutter = CGRect(x: 0, y: 0, width: 96, height: 466)
         let camera = CGRect(x: 0, y: 0, width: 96, height: 60)
         let controls = CGRect(x: 20, y: 170, width: 56, height: 276)
-        let frame = try XCTUnwrap(KazumiTabBarController.scrollToTopFrame(in: gutter, avoiding: [camera]) {
-            !controls.contains($0)
-        })
+        let frame = try XCTUnwrap(KazumiTabBarController.scrollToTopFrame(in: gutter, centerX: 48, avoiding: [camera, controls]))
         XCTAssertTrue(gutter.contains(frame))
         XCTAssertFalse(frame.intersects(camera))
         XCTAssertFalse(frame.intersects(controls))
-        XCTAssertNil(KazumiTabBarController.scrollToTopFrame(in: gutter, avoiding: [gutter]) { _ in true })
-        XCTAssertNil(KazumiTabBarController.scrollToTopFrame(in: .zero, avoiding: []) { _ in true })
+        XCTAssertNil(KazumiTabBarController.scrollToTopFrame(in: gutter, centerX: 48, avoiding: [gutter]))
+        XCTAssertNil(KazumiTabBarController.scrollToTopFrame(in: .zero, centerX: 0, avoiding: []))
+    }
+
+    func testVisibleRailButtonClearsReservedRegionsAndAlignsWithTabs() throws {
+        guard #available(iOS 27.1, *) else { throw XCTSkip("Vertical tabs require iOS 27.1") }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let controller = KazumiTabBarController(content: UIViewController())
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { window.isHidden = true }
+        controller.update(["selectedIndex": 0, "visible": true, "scrollToTop": true])
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.5))
+        guard controller.traitCollection.verticalBarEdge != .unspecified else {
+            throw XCTSkip("The current scene uses a horizontal tab bar")
+        }
+        let button = try XCTUnwrap(controller.view.subviews.first { $0.accessibilityLabel == "返回顶部" })
+        let reserved = controller.view.reservedRegions(kind: .occlusion).filter(\.isActive)
+        let body = controller.contentLayoutGuide.layoutFrame
+        // A short rail may legitimately require a page button. In the tall
+        // rail configuration there is room for a full touch target.
+        guard window.bounds.height >= 650 else { throw XCTSkip("Short rail") }
+        XCTAssertFalse(button.isHidden)
+        XCTAssertFalse(button.frame.intersects(body))
+        XCTAssertFalse(reserved.contains { $0.frame.intersects(button.frame) })
+        if let camera = reserved.min(by: { $0.frame.width < $1.frame.width }) {
+            XCTAssertEqual(button.frame.midX, camera.frame.midX, accuracy: 2)
+        }
+        XCTAssertLessThan(button.frame.maxY, window.bounds.midY)
     }
 
     func testSystemItemsHaveLabelsAndSymbols() throws {

@@ -129,6 +129,7 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
     private var channel: FlutterMethodChannel?
     private var requestsScrollToTop = false
     private var lastPlacement: Bool?
+    private var resizing = false
     private lazy var scrollToTop: UIButton = {
         let button = UIButton(type: .system)
         if #available(iOS 26.0, *) {
@@ -218,6 +219,7 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         content.endAppearanceTransition()
+        view.setNeedsLayout()
     }
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
@@ -262,10 +264,20 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
         channel?.invokeMethod("scrollToTop", arguments: nil)
     }
 
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        resizing = true
+        publishScrollToTop(frame: nil)
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.resizing = false
+            self?.view.setNeedsLayout()
+        }
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        guard #available(iOS 27.1, *), requestsScrollToTop, !isTabBarHidden,
-              let window = view.window, let page = content.parent else {
+        guard #available(iOS 27.1, *), requestsScrollToTop, !resizing, !isTabBarHidden,
+              view.window != nil else {
             publishScrollToTop(frame: nil)
             return
         }
@@ -293,30 +305,44 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
         let gutter = CGRect(x: x, y: bounds.minY, width: width, height: bounds.height)
         let reserved = (view.reservedRegions(kind: .occlusion) + view.reservedRegions(kind: .division))
             .filter(\.isActive).map(\.frame)
-        // Hit testing the scene's public view hierarchy accounts for the system's
-        // floating search and tab controls even when the bar spans the entire window.
-        scrollToTop.isUserInteractionEnabled = false
-        let frame = Self.scrollToTopFrame(in: gutter, avoiding: reserved) { point in
-            let hit = window.hitTest(view.convert(point, to: window), with: nil)
-            return hit?.isDescendant(of: page.view) == true
+        // UIKit can host all five controls in a window-sized toolbar. The
+        // public tab items have no accessibilityFrame in that presentation.
+        // Collect visible subview bounds wholly inside the gutter, skipping
+        // the page and our button. No private class or hierarchy is assumed.
+        var occupied = [CGRect]()
+        func collect(_ node: UIView) {
+            guard node !== content.parent?.view, node !== scrollToTop, node !== tabBar,
+                  !node.isHidden, node.alpha > 0.01 else { return }
+            let box = node.convert(node.bounds, to: view)
+            if !box.isEmpty, gutter.contains(box), box.height < gutter.height {
+                occupied.append(box)
+            } else {
+                node.subviews.forEach(collect)
+            }
         }
-        scrollToTop.isUserInteractionEnabled = true
+        view.subviews.forEach(collect)
+        // Align with the visible system controls when their geometry is ready.
+        // Each actual group must have been laid out before placing our control.
+        // The legacy tabBar proxy can already have geometry one pass earlier.
+        guard let anchor = occupied.filter({ $0.height > $0.width && $0.width >= 32 })
+            .max(by: { $0.height < $1.height }) else {
+            publishScrollToTop(frame: nil)
+            return
+        }
+        let frame = Self.scrollToTopFrame(in: gutter, centerX: anchor.midX, avoiding: reserved + occupied)
         publishScrollToTop(frame: frame)
     }
 
-    static func scrollToTopFrame(in gutter: CGRect, avoiding reserved: [CGRect],
-                                 isFree: (CGPoint) -> Bool) -> CGRect? {
+    static func scrollToTopFrame(in gutter: CGRect, centerX: CGFloat, avoiding occupied: [CGRect]) -> CGRect? {
         let size: CGFloat = 48
         let top = gutter.minY + 12
         let bottom = gutter.maxY - size - 12
         guard gutter.width >= size + 4, bottom >= top else { return nil }
-        for y in stride(from: bottom, through: top, by: -8) {
-            let frame = CGRect(x: gutter.midX - size / 2, y: y, width: size, height: size)
-            let padded = frame.insetBy(dx: -2, dy: -4)
-            if reserved.contains(where: { $0.intersects(padded) }) { continue }
-            let xs = [padded.minX, padded.midX, padded.maxX]
-            let ys = [padded.minY, padded.midY, padded.maxY]
-            if ys.allSatisfy({ y in xs.allSatisfy { isFree(CGPoint(x: $0, y: y)) } }) { return frame }
+        for y in stride(from: top, through: bottom, by: 4) {
+            let frame = CGRect(x: centerX - size / 2, y: y, width: size, height: size)
+            if gutter.contains(frame), !occupied.contains(where: { $0.intersects(frame.insetBy(dx: -4, dy: -8)) }) {
+                return frame
+            }
         }
         return nil
     }
