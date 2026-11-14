@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kazumi/bean/widget/ios_scene_environment.dart';
+import 'package:kazumi/bean/settings/settings_scroll_edge.dart';
 import 'package:kazumi/utils/adaptive_layout.dart';
 import 'package:kazumi/pages/video/video_viewport_geometry.dart';
 
@@ -61,6 +62,23 @@ class VideoPageLayout extends StatelessWidget {
         size.width - padding.right,
         size.height - padding.bottom,
       );
+      final panelWidth = AdaptiveLayout.playerPanelWidth(safe.width);
+      final railInset = math.min(padding.right, scene.rightRailInset);
+      final edgePanel = Rect.fromLTWH(
+        safe.right + railInset - panelWidth,
+        0,
+        panelWidth,
+        size.height,
+      );
+      // A hidden native rail still contributes a safe inset to the selected
+      // tab's controller. Release it only when UIKit reports this pane clear.
+      final useRightEdge =
+          ios &&
+          columns &&
+          verticalFold == null &&
+          scene.matches(size) &&
+          railInset > 0 &&
+          !scene.occlusions.any(edgePanel.overlaps);
       Rect playerRect;
       Rect tabsRect;
       if (fillsWindow) {
@@ -75,14 +93,11 @@ class VideoPageLayout extends StatelessWidget {
           size.height,
         );
       } else if (columns) {
-        final panel = AdaptiveLayout.playerPanelWidth(safe.width);
-        playerRect = Rect.fromLTRB(0, 0, safe.right - panel, size.height);
-        tabsRect = Rect.fromLTRB(
-          safe.right - panel,
-          0,
-          size.width,
-          size.height,
-        );
+        final boundary = useRightEdge
+            ? edgePanel.left
+            : safe.right - panelWidth;
+        playerRect = Rect.fromLTRB(0, 0, boundary, size.height);
+        tabsRect = Rect.fromLTRB(boundary, 0, size.width, size.height);
       } else {
         // Preserve a 16:9 inline frame and leave usable room for episode tabs.
         // Insets protect controls, rather than cutting a white strip out of
@@ -127,6 +142,11 @@ class VideoPageLayout extends StatelessWidget {
       // or reset the active episode, tabs, focus and player control state.
       final panelAtStatusArea =
           !fillsWindow && (columns || verticalFold != null);
+      final tabsPadding = useRightEdge
+          ? insetsFor(tabsRect).copyWith(right: padding.right - railInset)
+          : ios
+          ? geometryFor(tabsRect).contentPadding
+          : insetsFor(tabsRect);
       return AnnotatedRegion<SystemUiOverlayStyle>(
         value:
             panelAtStatusArea &&
@@ -168,16 +188,21 @@ class VideoPageLayout extends StatelessWidget {
                     : ColoredBox(
                         color: Theme.of(context).colorScheme.surface,
                         child: Padding(
+                          // Episode and comment lists reserve their own final
+                          // scroll inset, so the viewport reaches the home edge.
                           padding: ios
-                              ? geometryFor(tabsRect).contentPadding
-                              : insetsFor(tabsRect),
-                          child: MediaQuery.removePadding(
-                            context: context,
-                            removeTop: true,
-                            removeBottom: true,
-                            removeLeft: true,
-                            removeRight: true,
-                            child: tabs,
+                              ? tabsPadding.copyWith(bottom: 0)
+                              : tabsPadding,
+                          child: MediaQuery(
+                            data: MediaQuery.of(context).copyWith(
+                              padding: EdgeInsets.only(
+                                bottom: ios ? tabsPadding.bottom : 0,
+                              ),
+                              viewPadding: EdgeInsets.only(
+                                bottom: ios ? tabsPadding.bottom : 0,
+                              ),
+                            ),
+                            child: SettingsScrollEdge(child: tabs),
                           ),
                         ),
                       ),

@@ -1,9 +1,12 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/pages/video/video_fullscreen_controller.dart';
 import 'package:kazumi/pages/video/video_page_layout.dart';
 import 'package:kazumi/pages/video/video_side_panel.dart';
@@ -71,6 +74,112 @@ void main() {
     expect(episodes.right, 871);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'Duo split returns the hidden rail width to video and clears the camera',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(951, 669);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const sceneChannel = EventChannel('com.predidit.kazumi/scene');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      late MockStreamHandlerEventSink native;
+      messenger.setMockStreamHandler(
+        sceneChannel,
+        MockStreamHandler.inline(
+          onListen: (_, events) {
+            native = events;
+          },
+        ),
+      );
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: const MediaQueryData(
+                size: Size(951, 669),
+                padding: EdgeInsets.only(right: 84, bottom: 34),
+              ),
+              child: IosSceneEnvironment(
+                child: VideoPageLayout(
+                  fullscreen: false,
+                  isPip: false,
+                  playerBuilder: (_, _) => const ColoredBox(
+                    key: ValueKey('video'),
+                    color: Colors.black,
+                  ),
+                  tabs: const SizedBox.expand(key: ValueKey('episodes')),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final video = find.byKey(const ValueKey('video'));
+        final episodes = find.byKey(const ValueKey('episodes'));
+        final previousWidth = tester.getSize(video).width;
+        expect(previousWidth, closeTo(572.22, .01));
+        Future<void> report({
+          double width = 951,
+          double railInset = 84,
+          List<List<double>> occlusions = const [],
+          List<List<double>> divisions = const [],
+        }) async {
+          native.success({
+            'width': width,
+            'height': 669.0,
+            'rightRailInset': railInset,
+            'occlusions': occlusions,
+            'divisions': divisions,
+          });
+          await tester.pumpAndSettle();
+        }
+
+        await report();
+        expect(tester.getSize(video).width, closeTo(previousWidth + 84, .01));
+        expect(tester.getRect(episodes).right, 951);
+        expect(tester.getRect(episodes).left, tester.getRect(video).right);
+        expect(tester.getRect(episodes).top, 0);
+
+        await report(railInset: 64);
+        expect(tester.getRect(episodes).right, 931);
+        expect(tester.getSize(video).width, closeTo(previousWidth + 64, .01));
+
+        // With an actual obstruction keep the episode controls away from it.
+        await report(
+          occlusions: [
+            [867, 0, 84, 124],
+          ],
+        );
+        expect(tester.getSize(video).width, previousWidth);
+        expect(tester.getRect(episodes).right, 867);
+        expect(tester.getRect(episodes).top, 0);
+        expect(
+          tester
+              .getRect(episodes)
+              .overlaps(const Rect.fromLTWH(867, 0, 84, 124)),
+          isFalse,
+        );
+
+        await report(width: 669);
+        expect(tester.getRect(episodes).right, 867);
+
+        await report(
+          divisions: [
+            [470, 0, 10, 669],
+          ],
+        );
+        expect(tester.getRect(video).right, 470);
+        expect(tester.getRect(episodes).left, 480);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        messenger.setMockStreamHandler(sceneChannel, null);
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
 
   testWidgets('wide playback paints black through bottom and camera insets', (
     tester,

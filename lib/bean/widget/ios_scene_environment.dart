@@ -10,6 +10,7 @@ class IosSceneData {
     this.size = Size.zero,
     this.occlusions = const [],
     this.divisions = const [],
+    this.rightRailInset = 0,
     this.reduceTransparency = false,
     this.reduceMotion = false,
     this.highContrast = false,
@@ -33,6 +34,7 @@ class IosSceneData {
       ),
       occlusions: regions('occlusions'),
       divisions: regions('divisions'),
+      rightRailInset: (map['rightRailInset'] as num?)?.toDouble() ?? 0,
       reduceTransparency: map['reduceTransparency'] == true,
       reduceMotion: map['reduceMotion'] == true,
       highContrast: map['highContrast'] == true,
@@ -42,6 +44,7 @@ class IosSceneData {
   final Size size;
   final List<Rect> occlusions;
   final List<Rect> divisions;
+  final double rightRailInset;
   final bool reduceTransparency;
   final bool reduceMotion;
   final bool highContrast;

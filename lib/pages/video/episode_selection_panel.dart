@@ -80,7 +80,8 @@ class EpisodeSelectionPanelState extends State<EpisodeSelectionPanel> {
           .localToGlobal(Offset.zero, ancestor: item.viewport)
           .dy;
       if (top >= toolbarHeight &&
-          top + item.renderObject.size.height <= item.viewport.size.height) {
+          top + item.renderObject.size.height <=
+              item.viewport.size.height - MediaQuery.paddingOf(context).bottom) {
         return;
       }
     }

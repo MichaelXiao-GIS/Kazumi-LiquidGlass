@@ -68,11 +68,21 @@ private final class KazumiSceneProbe: UIView {
     func publish() {
         var occlusions: [[CGFloat]] = []
         var divisions: [[CGFloat]] = []
+        var rightRailInset: CGFloat = 0
         if #available(iOS 27.1, *) {
             func frames(_ kind: UIView.ReservedRegion.Kind) -> [[CGFloat]] {
                 reservedRegions(kind: kind).filter(\.isActive).map {
                     [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height]
                 }
+            }
+            let edge = traitCollection.verticalBarEdge
+            let verticalBarOnRight =
+                edge == .trailing && effectiveUserInterfaceLayoutDirection == .leftToRight ||
+                edge == .leading && effectiveUserInterfaceLayoutDirection == .rightToLeft
+            if verticalBarOnRight, let root = window?.rootViewController?.view {
+                let safe = root.convert(root.safeAreaLayoutGuide.layoutFrame, to: self)
+                let rootInset = max(0, bounds.maxX - safe.maxX)
+                rightRailInset = max(0, safeAreaInsets.right - rootInset)
             }
             occlusions = frames(.occlusion)
             divisions = frames(.division)
@@ -80,6 +90,7 @@ private final class KazumiSceneProbe: UIView {
         let metrics: NSDictionary = [
             "width": bounds.width, "height": bounds.height,
             "occlusions": occlusions, "divisions": divisions,
+            "rightRailInset": rightRailInset,
             "reduceTransparency": UIAccessibility.isReduceTransparencyEnabled,
             "reduceMotion": UIAccessibility.isReduceMotionEnabled,
             "highContrast": UIAccessibility.isDarkerSystemColorsEnabled
