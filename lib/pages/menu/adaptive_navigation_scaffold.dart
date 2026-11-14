@@ -31,6 +31,72 @@ class _AdaptiveNavigationScaffoldState
     extends State<AdaptiveNavigationScaffold> {
   final _scrollToTop = NavigationScrollToTopController();
   bool _nativeScrollToTop = false;
+  bool _compact = false;
+  double _dragDistance = 0;
+  Size? _menuSize;
+  BuildContext? _lastScrollSource;
+
+  void _resetScroll() {
+    _compact = false;
+    _dragDistance = 0;
+    _lastScrollSource = null;
+  }
+
+  @override
+  void didUpdateWidget(covariant AdaptiveNavigationScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) _resetScroll();
+  }
+
+  void _expandTabs() {
+    if (_compact) {
+      setState(_resetScroll);
+    } else {
+      _resetScroll();
+    }
+  }
+
+  bool _onMenuScroll(ScrollNotification event) {
+    final metrics = event.metrics;
+    final source = event.context;
+    if (source == null || ModalRoute.of(source)?.isCurrent == false) {
+      return false;
+    }
+    if (metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (event is ScrollStartNotification && event.dragDetails != null) {
+      _dragDistance = 0;
+    }
+    if (event is! ScrollUpdateNotification) return false;
+
+    // An animated return to the top also restores the expanded bar. Ignore
+    // bouncing and ballistic motion when deciding the user's reading direction.
+    if (metrics.extentBefore <= 0) {
+      if (_lastScrollSource == source) _expandTabs();
+      return false;
+    }
+    if (event.dragDetails == null || metrics.outOfRange) return false;
+    final delta = event.scrollDelta ?? 0;
+    if (delta == 0) return false;
+    _lastScrollSource = source;
+    if (_dragDistance.sign != delta.sign) _dragDistance = 0;
+    _dragDistance += delta;
+    if (!_compact && _dragDistance >= 32) {
+      setState(() => _compact = true);
+    } else if (_compact && _dragDistance <= -24) {
+      setState(() => _compact = false);
+    }
+    return false;
+  }
+
+  bool _onScrollMetrics(ScrollMetricsNotification event) {
+    // A filter or refresh can replace a long list with a single screen.
+    if (event.context == _lastScrollSource && event.metrics.extentBefore <= 0) {
+      _expandTabs();
+    }
+    return false;
+  }
 
   void _setScrollToTopPlacement(bool shown) {
     if (_nativeScrollToTop != shown) setState(() => _nativeScrollToTop = shown);
@@ -52,13 +118,21 @@ class _AdaptiveNavigationScaffoldState
             media.viewInsets.bottom == 0 &&
             (ModalRoute.isCurrentOf(context) ?? true) &&
             RouteVisibility.nativeControlsVisibleOf(context);
+        if (!visible || size != _menuSize) _resetScroll();
+        _menuSize = size;
         return Stack(
           fit: StackFit.expand,
           children: [
             NavigationScrollToTop(
               controller: _scrollToTop,
               inNavigation: visible && _nativeScrollToTop,
-              child: widget.child,
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: visible ? _onScrollMetrics : null,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: visible ? _onMenuScroll : null,
+                  child: widget.child,
+                ),
+              ),
             ),
             if (visible && media.padding.bottom > 0)
               Positioned(
@@ -71,8 +145,10 @@ class _AdaptiveNavigationScaffoldState
             if (visible)
               IosSystemTabs(
                 selectedIndex: widget.selectedIndex,
+                compact: _compact,
                 onSelected: (index) {
                   if (index == 0 && widget.selectedIndex == 0) {
+                    _expandTabs();
                     _scrollToTop.scrollToTop();
                   } else {
                     widget.onSelected(index);
@@ -80,7 +156,10 @@ class _AdaptiveNavigationScaffoldState
                 },
                 onSearch: widget.onSearch,
                 onScrollToTop: widget.selectedIndex == 0
-                    ? _scrollToTop.scrollToTop
+                    ? () {
+                        _expandTabs();
+                        _scrollToTop.scrollToTop();
+                      }
                     : null,
                 onScrollToTopPlacement: _setScrollToTopPlacement,
               ),

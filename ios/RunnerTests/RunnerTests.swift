@@ -4,6 +4,52 @@ import XCTest
 
 @MainActor
 class RunnerTests: XCTestCase {
+    func testScrollCompactPreservesTabActionsAndResetsOnHide() throws {
+        guard #available(iOS 27.0, *) else { throw XCTSkip("Native animated title updates require iOS 27") }
+        let content = UIViewController()
+        let host = KazumiTabBarController(content: content)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = host
+        window.isHidden = false
+        defer { window.isHidden = true }
+        host.update(["selectedIndex": 0, "visible": true])
+        window.layoutIfNeeded()
+        let items = host.tabs
+        let titles = items.map(\.title)
+        host.update(["selectedIndex": 0, "visible": true, "compact": true])
+        if #available(iOS 27.1, *), host.traitCollection.verticalBarEdge != .unspecified {
+            XCTAssertEqual(items.map(\.title), titles)
+            XCTAssertTrue(host.tabBar.transform.isIdentity)
+            return
+        }
+        guard host.traitCollection.userInterfaceIdiom == .phone,
+              host.traitCollection.horizontalSizeClass == .compact,
+              window.bounds.height > window.bounds.width else {
+            XCTAssertEqual(items.map(\.title), titles)
+            return
+        }
+        XCTAssertEqual(items.map(\.title), Array(repeating: "", count: 5))
+        XCTAssertEqual(items.compactMap(\.accessibilityLabel), titles)
+        XCTAssertEqual(host.tabBar.transform.a, 0.88, accuracy: 0.001)
+        var selection: Int?
+        var searched = false
+        host.onSelect = { selection = $0 }
+        host.onSearch = { searched = true }
+        XCTAssertTrue(host.tabBarController(host, shouldSelectTab: items[2]))
+        XCTAssertEqual(selection, 2)
+        XCTAssertFalse(host.tabBarController(host, shouldSelectTab: items[4]))
+        XCTAssertTrue(searched)
+        // Reverse while the animation is still running, then hide the route.
+        host.update(["selectedIndex": 0, "visible": true, "compact": false])
+        host.update(["selectedIndex": 0, "visible": true, "compact": true])
+        host.update(["selectedIndex": 0, "visible": false])
+        XCTAssertEqual(items.map(\.title), titles)
+        XCTAssertTrue(host.tabBar.transform.isIdentity)
+        XCTAssertTrue(host.isTabBarHidden)
+        XCTAssertIdentical(content.parent, host.selectedTab?.viewController)
+    }
+
     func testScrollButtonFitsGutterAndAvoidsSystemControls() throws {
         let gutter = CGRect(x: 0, y: 0, width: 96, height: 466)
         let camera = CGRect(x: 0, y: 0, width: 96, height: 60)

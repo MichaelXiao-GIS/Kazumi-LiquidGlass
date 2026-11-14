@@ -7,6 +7,7 @@ class IosSystemTabs extends StatefulWidget {
   const IosSystemTabs({
     super.key,
     required this.selectedIndex,
+    required this.compact,
     required this.onSelected,
     required this.onSearch,
     required this.onScrollToTop,
@@ -14,6 +15,7 @@ class IosSystemTabs extends StatefulWidget {
   });
 
   final int selectedIndex;
+  final bool compact;
   final ValueChanged<int> onSelected;
   final VoidCallback onSearch;
   final VoidCallback? onScrollToTop;
@@ -63,6 +65,7 @@ class _IosSystemTabsState extends State<IosSystemTabs> {
     final theme = Theme.of(context);
     final configuration = {
       'visible': true,
+      'compact': widget.compact,
       'selectedIndex': widget.selectedIndex,
       'scrollToTop': widget.onScrollToTop != null,
       'dark': theme.brightness == Brightness.dark,

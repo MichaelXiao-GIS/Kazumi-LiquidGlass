@@ -141,6 +141,8 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
     private var requestsScrollToTop = false
     private var lastPlacement: Bool?
     private var resizing = false
+    private var compactTabs = false
+    private var expandedTitles: [String] = []
     // Stored as NSObject because the deployment target predates UIUpdateLink.
     private var toolbarUpdates: NSObject?
     private lazy var scrollToTop: UIButton = {
@@ -176,7 +178,11 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
             let search = UISearchTab { [searchPage] _ in searchPage }
             search.title = "搜索番剧"
             tabs = routes + [search]
-            if #available(iOS 27.0, *) { prominentTabIdentifier = search.identifier }
+            if #available(iOS 27.0, *) {
+                prominentTabIdentifier = search.identifier
+                expandedTitles = tabs.map(\.title)
+                for tab in tabs { tab.accessibilityLabel = tab.title }
+            }
         } else {
             for (index, item) in destinations.enumerated() {
                 pages[index].tabBarItem = UITabBarItem(title: item.1, image: UIImage(systemName: item.2), tag: index)
@@ -269,8 +275,49 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
         }
         requestsScrollToTop = config["scrollToTop"] as? Bool == true && config["selectedIndex"] as? Int == 0
         lastPlacement = nil
-        setChromeVisible(config["visible"] as? Bool ?? true)
+        let visible = config["visible"] as? Bool ?? true
+        setChromeVisible(visible)
+        if #available(iOS 27.0, *), visible {
+            setCompactTabs(config["compact"] as? Bool == true && canCompactTabs, animated: true)
+        }
         view.setNeedsLayout()
+    }
+
+    @available(iOS 27.0, *)
+    private var canCompactTabs: Bool {
+        if #available(iOS 27.1, *), traitCollection.verticalBarEdge != .unspecified { return false }
+        let size = view.bounds.size
+        return !resizing && view.window != nil && !isTabBarHidden &&
+            traitCollection.userInterfaceIdiom == .phone &&
+            traitCollection.horizontalSizeClass == .compact &&
+            size.width > 0 && size.width < size.height
+    }
+
+    @available(iOS 27.0, *)
+    private func setCompactTabs(_ compact: Bool, animated: Bool) {
+        guard compactTabs != compact else { return }
+        compactTabs = compact
+        let updateTitles = {
+            self.performBatchUpdates {
+                for (tab, title) in zip(self.tabs, self.expandedTitles) {
+                    tab.title = compact ? "" : title
+                }
+            }
+        }
+        let scale = compact ? CGAffineTransform(scaleX: 0.88, y: 0.88) : .identity
+        if animated && !UIAccessibility.isReduceMotionEnabled {
+            updateTitles()
+            UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut]) {
+                self.tabBar.transform = scale
+            }
+        } else {
+            // A rotation or covered route can interrupt an in-flight scale.
+            tabBar.layer.removeAnimation(forKey: "transform")
+            UIView.performWithoutAnimation {
+                updateTitles()
+                self.tabBar.transform = scale
+            }
+        }
     }
 
     @objc private func scrollToTopTapped() {
@@ -280,6 +327,7 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         resizing = true
+        if #available(iOS 27.0, *) { setCompactTabs(false, animated: false) }
         publishScrollToTop(frame: nil)
         coordinator.animate(alongsideTransition: nil) { [weak self] _ in
             self?.resizing = false
@@ -289,6 +337,9 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        if #available(iOS 27.0, *), compactTabs && !canCompactTabs {
+            setCompactTabs(false, animated: false)
+        }
         guard #available(iOS 27.1, *) else { return }
         // UIKit's floating toolbar lays out its descendants after the tab
         // controller's layout callback. Sample after the transaction commits.
@@ -398,7 +449,10 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
     }
 
     private func setChromeVisible(_ visible: Bool) {
-        if !visible { publishScrollToTop(frame: nil) }
+        if !visible {
+            if #available(iOS 27.0, *) { setCompactTabs(false, animated: false) }
+            publishScrollToTop(frame: nil)
+        }
         if #available(iOS 18.0, *) {
             if isTabBarHidden == visible { setTabBarHidden(!visible, animated: false) }
         } else {
