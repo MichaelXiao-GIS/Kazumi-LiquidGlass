@@ -31,7 +31,8 @@ class RunnerTests: XCTestCase {
         }
         XCTAssertEqual(items.map(\.title), Array(repeating: "", count: 5))
         XCTAssertEqual(items.compactMap(\.accessibilityLabel), titles)
-        XCTAssertEqual(host.tabBar.transform.a, 0.88, accuracy: 0.001)
+        XCTAssertEqual(host.tabBar.transform.a, 0.76, accuracy: 0.001)
+        XCTAssertEqual(host.tabBar.transform.d, 0.76, accuracy: 0.001)
         var selection: Int?
         var searched = false
         host.onSelect = { selection = $0 }

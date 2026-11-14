@@ -304,7 +304,7 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
                 }
             }
         }
-        let scale = compact ? CGAffineTransform(scaleX: 0.88, y: 0.88) : .identity
+        let scale = compact ? CGAffineTransform(scaleX: 0.76, y: 0.76) : .identity
         if animated && !UIAccessibility.isReduceMotionEnabled {
             updateTitles()
             UIView.animate(withDuration: 0.25, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut]) {
