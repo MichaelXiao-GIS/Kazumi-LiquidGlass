@@ -130,6 +130,8 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
     private var requestsScrollToTop = false
     private var lastPlacement: Bool?
     private var resizing = false
+    // Stored as NSObject because the deployment target predates UIUpdateLink.
+    private var toolbarUpdates: NSObject?
     private lazy var scrollToTop: UIButton = {
         let button = UIButton(type: .system)
         if #available(iOS 26.0, *) {
@@ -276,8 +278,30 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        guard #available(iOS 27.1, *), requestsScrollToTop, !resizing, !isTabBarHidden,
-              view.window != nil else {
+        guard #available(iOS 27.1, *) else { return }
+        // UIKit's floating toolbar lays out its descendants after the tab
+        // controller's layout callback. Sample after the transaction commits.
+        // This passive link never requests frames and stops after a usable
+        // toolbar layout (including a layout without space for our button).
+        let updates: UIUpdateLink
+        if let existing = toolbarUpdates as? UIUpdateLink {
+            updates = existing
+        } else {
+            updates = UIUpdateLink(view: view)
+            updates.addAction(to: .afterCATransactionCommit) { [weak self] link, _ in
+                guard let self else { link.isEnabled = false; return }
+                self.placeScrollToTop(afterLayout: link)
+            }
+            toolbarUpdates = updates
+        }
+        updates.isEnabled = requestsScrollToTop && !resizing && !isTabBarHidden && view.window != nil
+        if !updates.isEnabled { publishScrollToTop(frame: nil) }
+    }
+
+    @available(iOS 27.1, *)
+    private func placeScrollToTop(afterLayout updates: UIUpdateLink) {
+        guard requestsScrollToTop, !resizing, !isTabBarHidden, view.window != nil else {
+            updates.isEnabled = false
             publishScrollToTop(frame: nil)
             return
         }
@@ -292,6 +316,7 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
         }
         let edge = traitCollection.verticalBarEdge
         guard edge == .leading || edge == .trailing else {
+            updates.isEnabled = false
             publishScrollToTop(frame: nil)
             return
         }
@@ -329,6 +354,7 @@ final class KazumiTabBarController: UITabBarController, UITabBarControllerDelega
             publishScrollToTop(frame: nil)
             return
         }
+        updates.isEnabled = false
         let frame = Self.scrollToTopFrame(in: gutter, centerX: anchor.midX, avoiding: reserved + occupied)
         publishScrollToTop(frame: frame)
     }
