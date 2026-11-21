@@ -87,6 +87,13 @@ class ApiEndpoints {
 
   static const bangumiPublicApiHosts = {'api.bgm.tv', 'next.bgm.tv'};
 
+  static bool isMirrorCommentRequest(Uri uri, String method) =>
+      method == 'GET' &&
+      uri.host == 'next.bgm.tv' &&
+      RegExp(
+        r'^/p1/(subjects|episodes|characters)/[0-9]+/comments$',
+      ).hasMatch(uri.path);
+
   /// 每日放送
   static const String bangumiCalendar = '/p1/calendar';
 

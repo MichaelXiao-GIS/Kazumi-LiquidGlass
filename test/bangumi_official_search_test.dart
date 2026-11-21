@@ -12,6 +12,7 @@ import 'package:kazumi/request/core/dio_factory.dart';
 import 'package:kazumi/request/core/network_exception.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/search_parser.dart';
+import 'package:kazumi/utils/bangumi_mirror_credentials.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 class _Paths extends PathProviderPlatform {
@@ -166,15 +167,37 @@ void main() {
     );
   });
 
-  test('non-search mirror requests keep their route and signature', () async {
-    await GStorage.putSetting(SettingsKeys.bangumiAcceleration, 'mirror');
-    await BangumiClient.instance.get(
-      '${ApiEndpoints.bangumiAPINextDomain}/p1/subjects/400602/comments',
-    );
-    final request = transport.requests.single;
-    expect(request.uri.host, Uri.parse(ApiEndpoints.bangumiMirrorDomain).host);
-    expect(request.headers['X-Signature'], isNotEmpty);
-  });
+  test(
+    'mirror comments route and sign only with a full credential pair',
+    () async {
+      await GStorage.putSetting(SettingsKeys.bangumiAcceleration, 'mirror');
+      final signed =
+          bangumiMirrorCredentials['id']!.isNotEmpty &&
+          bangumiMirrorCredentials['value']!.isNotEmpty;
+      for (final resource in ['subjects', 'episodes', 'characters']) {
+        await BangumiClient.instance.get(
+          '${ApiEndpoints.bangumiAPINextDomain}/p1/$resource/1738540/comments',
+        );
+        final request = transport.requests.last;
+        expect(
+          request.uri.host,
+          signed
+              ? Uri.parse(ApiEndpoints.bangumiMirrorDomain).host
+              : 'next.bgm.tv',
+        );
+        expect(request.headers['X-Signature'], signed ? isNotEmpty : isNull);
+        expect(request.headers['X-AppId'], signed ? isNotEmpty : isNull);
+        expect(request.headers['X-Timestamp'], signed ? isNotNull : isNull);
+      }
+      await BangumiClient.instance.get(
+        '${ApiEndpoints.bangumiAPIDomain}/v0/episodes',
+      );
+      expect(
+        transport.requests.last.uri.host,
+        Uri.parse(ApiEndpoints.bangumiMirrorDomain).host,
+      );
+    },
+  );
 
   test(
     'official rejection is propagated instead of returning an empty page',
