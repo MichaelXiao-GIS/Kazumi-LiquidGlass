@@ -16,6 +16,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       const bottom = 34.0;
+      var sortChanges = 0;
       final road = Road(
         name: '线路',
         data: List.generate(30, (i) => 'ep$i'),
@@ -72,7 +73,7 @@ void main() {
                             isLoading: false,
                             hasError: false,
                             isAscending: true,
-                            onToggleSort: () {},
+                            onToggleSort: () => sortChanges++,
                             onSelectEpisode: () {},
                             onRefresh: () {},
                           ),
@@ -108,7 +109,7 @@ void main() {
       position.jumpTo(position.maxScrollExtent);
       await tester.pumpAndSettle();
       expect(
-        tester.getRect(find.byKey(const ValueKey('0:30'))).bottom,
+        tester.getRect(find.byKey(const ValueKey('grid-ep-0-30'))).bottom,
         lessThanOrEqualTo(844 - bottom),
       );
       await tester.tap(find.text('评论'));
@@ -119,6 +120,8 @@ void main() {
       );
       expect(tester.getRect(comments).bottom, 844);
       expect(MediaQuery.paddingOf(tester.element(comments)).bottom, bottom);
+      await tester.tap(find.text('最新'));
+      expect(sortChanges, 1);
       final commentPosition = tester
           .state<ScrollableState>(
             find.descendant(of: comments, matching: find.byType(Scrollable)),
@@ -129,10 +132,54 @@ void main() {
       commentPosition.jumpTo(commentPosition.maxScrollExtent);
       await tester.pumpAndSettle();
       expect(
-        tester.getRect(find.text('已显示全部 12 条讨论 · 来自 Bangumi')).bottom,
+        tester.getRect(find.text('共 12 条讨论 · 来自 Bangumi')).bottom,
         lessThanOrEqualTo(844 - bottom),
       );
       expect(edge, findsOneWidget);
     },
   );
+  testWidgets('browsing other ranges and roads preserves the playing episode', (
+    tester,
+  ) async {
+    final selections = <(int, int)>[];
+    Road road(String name, int length) => Road(
+      name: name,
+      data: List.generate(length, (i) => 'ep$i'),
+      identifier: [],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EpisodeSelectionPanel(
+            title: '剧集',
+            roads: [road('主线路', 104), road('备用', 4)],
+            selectedRoad: 0,
+            selectedEpisode: 53,
+            downloads: const {},
+            onEpisodeSelected: (episode, road) =>
+                selections.add((episode, road)),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('grid-ep-0-53')), findsOneWidget);
+    await tester.tap(find.text('101–104'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('grid-ep-0-104')));
+    expect(selections, [(104, 0)]);
+    await tester.tap(find.text('主线路'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('road-option-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('grid-ep-1-4')));
+    expect(selections, [(104, 0), (4, 1)]);
+    await tester.tap(find.byTooltip('定位当前集'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('grid-ep-0-53')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(selections, [(104, 0), (4, 1)]);
+  });
 }

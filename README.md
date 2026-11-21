@@ -15,9 +15,9 @@
 
 </div>
 
-**本项目是基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 修改的非官方 iOS 适配版本，由本仓库独立维护。** 初始基线为 2.4.2，当前源码已整合上游 2.4.4。保留 Kazumi 的 Flutter 架构、自定义规则、番剧目录、追番与播放能力，重点改进 iOS 界面、折叠屏布局和播放交互。
+**本项目是基于 [Predidit/Kazumi](https://github.com/Predidit/Kazumi) 修改的非官方 iOS 适配版本，由本仓库独立维护。** 初始基线为 2.4.2，当前源码已整合上游 2.4.5。保留 Kazumi 的 Flutter 架构、自定义规则、番剧目录、追番与播放能力，重点改进 iOS 界面、折叠屏布局和播放交互。
 
-当前版本为 **2.4.4（20411）/ 测试版 0020**，使用 iOS 27.2 SDK 构建。主导航使用 UIKit 的系统标签栏。iPhone Duo 由系统按当前屏幕和方向摆放标签，按住并滑动可预览图标和标题。四个标签沿用原来的页面，搜索可独立打开。Gamer 和 BiliBili 弹幕可独立使用，弹弹play 需要构建时配置开发者授权。
+当前版本为 **2.4.5（20412）/ 测试版 0021**，使用 iOS 27.2 SDK 构建。主导航使用 UIKit 的系统标签栏。iPhone Duo 由系统按当前屏幕和方向摆放标签，按住并滑动可预览图标和标题。四个标签沿用原来的页面，搜索可独立打开。Gamer 和 BiliBili 弹幕可独立使用，弹弹play 需要构建时配置开发者授权。
 
 ## 改版特色
 
@@ -64,7 +64,7 @@
 
 ## 下载与安装
 
-当前测试版：**Kazumi Liquid Glass测试版0015** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
+当前测试版：**Kazumi Liquid Glass测试版0021** · [版本列表、下载与更新说明](https://github.com/MichaelXiao-GIS/Kazumi-LiquidGlass/releases)
 
 1. 下载 Release 附件中的 `Kazumi_iOS27_unsigned.ipa`。
 2. 使用自己的 Apple 开发者签名或侧载工具重新签名后安装。**IPA 未签名，不能直接点击安装。**

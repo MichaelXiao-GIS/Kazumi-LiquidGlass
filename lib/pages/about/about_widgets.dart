@@ -80,7 +80,7 @@ class AboutLinkTile extends StatelessWidget {
         onTap: () => _url != null
             ? openAboutLink(context, _url)
             : context.pushNamed(_route!),
-        onHighlightChanged: SplitListRow.pressReporterOf(context),
+        statesController: SplitListRow.statesOf(context),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
