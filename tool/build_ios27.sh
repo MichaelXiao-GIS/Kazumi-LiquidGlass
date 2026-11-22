@@ -14,9 +14,8 @@ if [[ -n "${DANDANAPI_APPID:-}" || -n "${DANDANAPI_KEY:-}" ]]; then
   set -- "--dart-define-from-file=$package_dir/defines.json" "$@"
 fi
 bash tool/flutterw build ios --release --no-codesign "$@"
-mkdir -p dist "$package_dir/Payload"
-ditto build/ios/iphoneos/Runner.app "$package_dir/Payload/Runner.app"
-ditto -c -k --keepParent "$package_dir/Payload" dist/Kazumi_iOS27_unsigned.ipa
+mkdir -p dist
+bash tool/package_unsigned_ios.sh build/ios/iphoneos/Runner.app dist/Kazumi_iOS27_unsigned.ipa
 (
   cd dist
   shasum -a 256 Kazumi_iOS27_unsigned.ipa > Kazumi_iOS27_unsigned.ipa.sha256
