@@ -78,11 +78,12 @@ class _VideoSystemBarsState extends State<VideoSystemBars> with RouteAware {
             size,
             fullscreen: false,
             isPip: false,
+            isPad: scene.isPad,
           );
       unawaited(
         DisplayModeService.setSystemBarsHidden(
           owner: this,
-          hidden: defaultTargetPlatform == TargetPlatform.iOS ||
+          hidden: (defaultTargetPlatform == TargetPlatform.iOS && !scene.isPad) ||
               widget.fullscreen || fillsWindow,
         ),
       );

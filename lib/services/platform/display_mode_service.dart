@@ -12,7 +12,12 @@ class DisplayModeService {
   static Object? _systemBarsOwner;
   static bool _systemBarsHidden = false;
 
-  static Future<void> applyVideoFullscreen(bool fullscreen) {
+  static Future<void> applyVideoFullscreen(
+    bool fullscreen, {
+    bool isPad = false,
+  }) {
+    // An iPad window keeps its system-managed size and orientation.
+    if (isPad) return Future.value();
     return _pendingFullscreen = _pendingFullscreen.then((_) async {
       if (defaultTargetPlatform == TargetPlatform.macOS ||
           defaultTargetPlatform == TargetPlatform.windows ||

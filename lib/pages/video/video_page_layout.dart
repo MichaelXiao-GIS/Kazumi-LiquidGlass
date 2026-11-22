@@ -49,12 +49,13 @@ class VideoPageLayout extends StatelessWidget {
               size,
               fullscreen: fullscreen,
               isPip: isPip,
+              isPad: scene.isPad,
             )
           : fullscreen || isPip;
       final columns =
           !fillsWindow &&
           horizontalFold == null &&
-          AdaptiveLayout.usePlayerColumns(size);
+          AdaptiveLayout.usePlayerColumns(size, isPad: scene.isPad);
       final hasSidePanel = fillsWindow && !isPip && sidePanel != null;
       final safe = Rect.fromLTRB(
         padding.left,

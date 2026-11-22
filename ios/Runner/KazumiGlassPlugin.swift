@@ -89,6 +89,7 @@ private final class KazumiSceneProbe: UIView {
         }
         let metrics: NSDictionary = [
             "width": bounds.width, "height": bounds.height,
+            "isPad": traitCollection.userInterfaceIdiom == .pad,
             "occlusions": occlusions, "divisions": divisions,
             "rightRailInset": rightRailInset,
             "reduceTransparency": UIAccessibility.isReduceTransparencyEnabled,

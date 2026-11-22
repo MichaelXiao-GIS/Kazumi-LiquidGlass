@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/bean/widget/side_panel_transition.dart';
 
 class VideoSidePanel extends StatefulWidget {
@@ -116,10 +117,10 @@ class VideoSidePanelState extends State<VideoSidePanel>
                 bottomStart: Radius.circular(28),
               ),
               clipBehavior: Clip.antiAlias,
-              // Consume the hidden status-bar inset for the entire overlay.
+              // iPad can retain system window controls while playing fullscreen.
               child: MediaQuery.removePadding(
                 context: context,
-                removeTop: true,
+                removeTop: !IosSceneEnvironment.of(context).isPad,
                 removeLeft: true,
                 child: SafeArea(child: widget.child),
               ),

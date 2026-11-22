@@ -10,6 +10,7 @@ import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/pages/video/video_fullscreen_controller.dart';
 import 'package:kazumi/pages/video/video_page_layout.dart';
 import 'package:kazumi/pages/video/video_side_panel.dart';
+import 'package:kazumi/pages/video/video_system_bars.dart';
 
 class _PlayingSurface extends StatefulWidget {
   const _PlayingSurface({required this.onStart, required this.onDispose});
@@ -38,6 +39,115 @@ class _PlayingSurfaceState extends State<_PlayingSurface> {
 }
 
 void main() {
+  testWidgets(
+    'iPad rotation, window resizing and fullscreen preserve playback',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      const channel = EventChannel('com.predidit.kazumi/scene');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final modes = <Object?>[];
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+          modes.add(call.arguments);
+        }
+        return null;
+      });
+      messenger.setMockStreamHandler(
+        channel,
+        MockStreamHandler.inline(
+          onListen: (_, events) => events.success({
+            'isPad': true,
+            'width': 1376.0,
+            'height': 1032.0,
+          }),
+        ),
+      );
+      try {
+        final fullscreen = ValueNotifier(false);
+        addTearDown(fullscreen.dispose);
+        var starts = 0;
+        var disposals = 0;
+        const tabsKey = ValueKey('episode panel');
+        final player = find.byType(_PlayingSurface);
+        final tabs = find.byKey(tabsKey);
+        tester.view.physicalSize = const Size(1376, 1032);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(padding: const EdgeInsets.only(top: 24, bottom: 20)),
+              child: child!,
+            ),
+            home: IosSceneEnvironment(
+              child: ValueListenableBuilder<bool>(
+                valueListenable: fullscreen,
+                builder: (_, expanded, _) => VideoSystemBars(
+                  fullscreen: expanded,
+                  isPip: false,
+                  child: VideoPageLayout(
+                    fullscreen: expanded,
+                    isPip: false,
+                    playerBuilder: (_, _) => _PlayingSurface(
+                      onStart: () => starts++,
+                      onDispose: () => disposals++,
+                    ),
+                    tabs: const SizedBox.expand(key: tabsKey),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(tabs).left, tester.getRect(player).right);
+        expect(tester.getRect(tabs).top, 24);
+        for (final size in [
+          const Size(1032, 1376),
+          const Size(678, 1032),
+          const Size(678, 600),
+          const Size(375, 1032),
+          const Size(640, 370),
+        ]) {
+          tester.view.physicalSize = size;
+          await tester.pumpAndSettle();
+          final inline = tester.getRect(player);
+          expect(
+            inline.height,
+            closeTo(
+              (size.width * 9 / 16).clamp(0, size.height - 24 - 20 - 160),
+              .001,
+            ),
+          );
+          expect(inline.top, 24);
+          expect(tester.getSize(tabs).height, greaterThanOrEqualTo(160));
+          expect(tester.getRect(tabs).top, inline.bottom);
+          fullscreen.value = true;
+          await tester.pumpAndSettle();
+          expect(modes.last, 'SystemUiMode.immersiveSticky');
+          expect(tester.getSize(player), size);
+          expect(tabs, findsNothing);
+          fullscreen.value = false;
+          await tester.pumpAndSettle();
+          expect(modes.last, 'SystemUiMode.edgeToEdge');
+          expect(tester.getRect(player), inline);
+        }
+        expect(starts, 1);
+        expect(disposals, 0);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+        messenger.setMockStreamHandler(channel, null);
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
   testWidgets('unfolded phone keeps a full-height video beside episode tabs', (
     tester,
   ) async {

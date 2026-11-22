@@ -48,6 +48,10 @@ void main() {
         ),
       );
 
+      await DisplayModeService.applyVideoFullscreen(true, isPad: true);
+      await DisplayModeService.applyVideoFullscreen(false, isPad: true);
+      expect(orientations, isEmpty);
+
       // No physical-size/rotation event is supplied: the button must request it.
       await tester.tap(find.text('全屏'));
       await tester.pumpAndSettle();

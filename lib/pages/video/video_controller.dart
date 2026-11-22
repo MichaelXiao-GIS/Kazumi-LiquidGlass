@@ -98,8 +98,11 @@ abstract class _VideoPageController with Store implements Disposable {
   VideoEpisodeSelection get playbackEpisode =>
       playingEpisode ?? selectedEpisode;
 
-  final fullscreen = VideoFullscreenController(
-    applyFullscreen: DisplayModeService.applyVideoFullscreen,
+  bool isPad = false;
+
+  late final fullscreen = VideoFullscreenController(
+    applyFullscreen: (enabled) =>
+        DisplayModeService.applyVideoFullscreen(enabled, isPad: isPad),
   );
 
   bool get isFullscreen => fullscreen.isFullscreen;

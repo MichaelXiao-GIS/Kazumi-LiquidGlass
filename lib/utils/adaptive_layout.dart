@@ -7,17 +7,20 @@ abstract final class AdaptiveLayout {
       size.height >= 400 &&
       (size.width >= 600 || (size.height < 500 && size.width >= 480));
 
-  static bool usePlayerColumns(Size size) =>
-      size.width >= 700 && size.height >= 500;
+  static bool usePlayerColumns(Size size, {bool isPad = false}) =>
+      size.width >= 700 &&
+      size.height >= 500 &&
+      (!isPad || size.width > size.height);
 
   static bool playerFillsWindow(
     Size size, {
     required bool fullscreen,
     required bool isPip,
+    bool isPad = false,
   }) =>
       fullscreen ||
       isPip ||
-      (!usePlayerColumns(size) && size.width > size.height);
+      (!isPad && !usePlayerColumns(size) && size.width > size.height);
 
   static int posterColumns(double width, TextScaler scaler) {
     final minimum = scaler.scale(140).clamp(140.0, 240.0);

@@ -10,6 +10,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:kazumi/bean/appbar/drag_to_move_bar.dart' as dtb;
 import 'package:kazumi/bean/dialog/adaptive_bottom_sheet.dart';
 import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
+import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/bean/widget/loading_indicator.dart';
 import 'package:kazumi/bean/widget/media_error_widget.dart';
 import 'package:kazumi/modules/download/download_module.dart';
@@ -100,6 +101,7 @@ class _VideoPageState extends State<VideoPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    videoPageController.isPad = IosSceneEnvironment.of(context).isPad;
     if (_didInitializePlayback) {
       return;
     }
@@ -332,7 +334,7 @@ class _VideoPageState extends State<VideoPage>
                   // Cleanup resets loading while the route is still visible.
                   child: _isExiting
                       ? const SizedBox.expand()
-                      : Observer(builder: (_) => _buildPlayerBody(layout)),
+                      : Observer(builder: (context) => _buildPlayerBody(context, layout)),
                 ),
               ),
               tabs: _buildTabBody(),
@@ -351,7 +353,10 @@ class _VideoPageState extends State<VideoPage>
     );
   }
 
-  Widget _buildPlayerBody(VideoPlayerLayout layout) {
+  Widget _buildPlayerBody(BuildContext context, VideoPlayerLayout layout) {
+    final controlInsets = videoPageController.isPad
+        ? MediaQuery.paddingOf(context)
+        : EdgeInsets.zero;
     final bool playerLoading = playerController.playback.loading;
     return Stack(
       children: [
@@ -418,9 +423,9 @@ class _VideoPageState extends State<VideoPage>
               Stack(
                 children: [
                   Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
+                    top: controlInsets.top,
+                    left: controlInsets.left,
+                    right: controlInsets.right,
                     child: EmbeddedNativeControlArea(
                       requireOffset: !videoPageController.isFullscreen,
                       child: Row(

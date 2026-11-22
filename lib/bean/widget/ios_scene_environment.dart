@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 class IosSceneData {
   const IosSceneData({
     this.size = Size.zero,
+    this.isPad = false,
     this.occlusions = const [],
     this.divisions = const [],
     this.rightRailInset = 0,
@@ -28,6 +29,7 @@ class IosSceneData {
           ),
     ];
     return IosSceneData(
+      isPad: map['isPad'] == true,
       size: Size(
         (map['width'] as num? ?? 0).toDouble(),
         (map['height'] as num? ?? 0).toDouble(),
@@ -42,6 +44,7 @@ class IosSceneData {
   }
 
   final Size size;
+  final bool isPad;
   final List<Rect> occlusions;
   final List<Rect> divisions;
   final double rightRailInset;
