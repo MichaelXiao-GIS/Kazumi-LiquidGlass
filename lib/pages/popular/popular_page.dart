@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/widget/bangumi_mirror_error_widget.dart';
+import 'package:kazumi/bean/widget/ios_scene_environment.dart';
 import 'package:kazumi/bean/widget/kazumi_menu.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/pages/popular/popular_controller.dart';
@@ -169,16 +170,25 @@ class _PopularPageState extends State<PopularPage> {
   Widget contentGrid(List<BangumiItem> bangumiList) {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
-        const spacing = 12.0;
-        final width = (constraints.crossAxisExtent - 16).clamp(
+        final isPad = IosSceneEnvironment.of(context).isPad;
+        final spacing = isPad ? AdaptiveLayout.iPadPosterSpacing : 12.0;
+        final padding = EdgeInsets.symmetric(
+          horizontal: isPad ? 12 : 8,
+          vertical: 8,
+        );
+        final width = math.max(
           0.0,
-          double.infinity,
+          constraints.crossAxisExtent - padding.horizontal,
         );
         final scaler = MediaQuery.textScalerOf(context);
-        final columns = AdaptiveLayout.posterColumns(width, scaler);
+        final columns = AdaptiveLayout.posterColumns(
+          width,
+          scaler,
+          isPad: isPad,
+        );
         final posterWidth = (width - spacing * (columns - 1)) / columns;
         return SliverPadding(
-          padding: const EdgeInsets.all(8),
+          padding: padding,
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               mainAxisSpacing: 16,

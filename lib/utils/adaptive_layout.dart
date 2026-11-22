@@ -22,7 +22,21 @@ abstract final class AdaptiveLayout {
       isPip ||
       (!isPad && !usePlayerColumns(size) && size.width > size.height);
 
-  static int posterColumns(double width, TextScaler scaler) {
+  static const iPadPosterSpacing = 16.0;
+
+  static int posterColumns(
+    double width,
+    TextScaler scaler, {
+    bool isPad = false,
+  }) {
+    if (isPad) {
+      // Add a column when the available posters would exceed this width.
+      // Use the title's scale so Dynamic Type can give each title more room.
+      final maxWidth = 288 * math.max(1.0, scaler.scale(16) / 16);
+      return ((width + iPadPosterSpacing) / (maxWidth + iPadPosterSpacing))
+          .ceil()
+          .clamp(1, 5);
+    }
     final minimum = scaler.scale(140).clamp(140.0, 240.0);
     return ((width + 12) / (minimum + 12)).floor().clamp(1, 8);
   }
