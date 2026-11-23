@@ -378,54 +378,68 @@ class _PlayerScreenshotSheetState extends State<_PlayerScreenshotSheet> {
     );
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _header(context, compact: true, padding: 0),
           Expanded(
-            child: Column(
-              children: [
-                Expanded(child: Center(child: _preview())),
-                const SizedBox(height: 8),
-                Material(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: _thumbnails(compact: true),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            width: panelWidth,
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _header(context, compact: true, padding: 0),
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          current!.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${current!.episode} · ${current!.timeLabel}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      Expanded(child: Center(child: _preview())),
+                      const SizedBox(height: 8),
+                      Material(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: _thumbnails(compact: true),
+                      ),
+                    ],
                   ),
                 ),
-                Center(child: _navigation()),
-                _footer(context, compact: true, padding: 0, stackActions: true),
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: panelWidth,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                current!.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${current!.episode} · ${current!.timeLabel}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Center(child: _navigation()),
+                      _footer(
+                        context,
+                        compact: true,
+                        padding: 0,
+                        stackActions: true,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
