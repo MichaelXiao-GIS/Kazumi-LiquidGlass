@@ -43,6 +43,7 @@ class PlayerItemPanel extends StatefulWidget {
     required this.handleFullscreen,
     required this.enterAndroidPictureInPicture,
     required this.handleScreenShot,
+    required this.captureScreenshotCandidate,
     required this.showScreenshotCandidates,
     required this.onNextEpisode,
     required this.handleProgressBarDragStart,
@@ -71,6 +72,7 @@ class PlayerItemPanel extends StatefulWidget {
   final VoidCallback handleFullscreen;
   final Future<void> Function() enterAndroidPictureInPicture;
   final VoidCallback handleScreenShot;
+  final VoidCallback captureScreenshotCandidate;
   final VoidCallback showScreenshotCandidates;
   final VoidCallback handleProgressBarDragStart;
   final void Function(bool cancelled) handleProgressBarDragEnd;
@@ -1070,8 +1072,12 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
         ),
         KazumiMenuItem(onPressed: widget.handleScreenShot, label: '截图'),
         KazumiMenuItem(
+          onPressed: widget.captureScreenshotCandidate,
+          label: '截取候选画面',
+        ),
+        KazumiMenuItem(
           onPressed: widget.showScreenshotCandidates,
-          label: '查看截图',
+          label: '挑选截图',
         ),
         KazumiMenuItem(
           onPressed: () => playerController.panel.lockPanel = true,

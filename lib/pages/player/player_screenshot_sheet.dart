@@ -23,7 +23,9 @@ Future<void> showPlayerScreenshotSheet(
   barrierDismissible: true,
   builder: (context) => LayoutBuilder(
     builder: (context, constraints) {
-      final inset = constraints.maxWidth < 700 || constraints.maxHeight < 500
+      final inset = constraints.maxWidth < 420
+          ? 8.0
+          : constraints.maxWidth < 700 || constraints.maxHeight < 500
           ? 16.0
           : 24.0;
       return Dialog(
@@ -197,14 +199,20 @@ class _PlayerScreenshotSheetState extends State<_PlayerScreenshotSheet> {
       chooseDestination: _exportService.chooseDestination,
       write: _exportService.write,
     );
-    if (mounted) _showNotice();
+    if (mounted) {
+      _showNotice(
+        hint: _exportService.savesToPhotos && collection.hasError
+            ? '可检查系统相册的写入权限'
+            : null,
+      );
+    }
   }
 
-  void _showNotice() {
+  void _showNotice({String? hint}) {
     _noticeTimer?.cancel();
     _focus.requestFocus();
     setState(() {
-      _notice = collection.message;
+      _notice = hint == null ? collection.message : '${collection.message}。$hint';
       _noticeError = collection.hasError;
     });
     _noticeTimer = Timer(const Duration(seconds: 5), () {
@@ -274,10 +282,11 @@ class _PlayerScreenshotSheetState extends State<_PlayerScreenshotSheet> {
             child: LayoutBuilder(
               builder: (context, constraints) => Observer(
                 builder: (context) {
-                  final compact = constraints.maxHeight < 500;
+                  final short = constraints.maxHeight < 500;
+                  final compact = short || constraints.maxWidth < 420;
                   final wide = constraints.maxWidth >= 700;
                   final landscape =
-                      compact &&
+                      short &&
                       constraints.maxWidth >= 480 &&
                       constraints.maxWidth > constraints.maxHeight;
                   final padding = compact || !wide ? 16.0 : 24.0;
@@ -662,8 +671,6 @@ class _PlayerScreenshotSheetState extends State<_PlayerScreenshotSheet> {
               Expanded(
                 child: Text(
                   _notice!,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: colors.onInverseSurface,
                   ),
@@ -690,7 +697,10 @@ class _PlayerScreenshotSheetState extends State<_PlayerScreenshotSheet> {
   }) {
     final scaler = MediaQuery.textScalerOf(context);
     final buttonHeight = math.max(48.0, scaler.scale(20) + 24);
-    final saveWidth = math.max(148.0, scaler.scale(100) + 48);
+    final saveWidth = math.max(
+      148.0,
+      scaler.scale(_exportService.savesToPhotos ? 132 : 100) + 48,
+    );
     final save = SizedBox(
       height: buttonHeight,
       child: Observer(
@@ -708,6 +718,8 @@ class _PlayerScreenshotSheetState extends State<_PlayerScreenshotSheet> {
           label: Text(
             collection.saving
                 ? '${collection.saveCompleted}/${collection.saveTotal}'
+                : _exportService.savesToPhotos
+                ? '存入相册${collection.selectedCount > 0 ? '（${collection.selectedCount} 张）' : ''}'
                 : '保存${collection.selectedCount > 0 ? ' ${collection.selectedCount} 张' : '所选'}',
             maxLines: 1,
           ),

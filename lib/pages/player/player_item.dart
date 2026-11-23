@@ -33,7 +33,7 @@ import 'package:kazumi/pages/player/danmaku_source_sheet.dart';
 import 'package:kazumi/pages/player/player_item_surface.dart';
 import 'package:mobx/mobx.dart' as mobx;
 import 'package:kazumi/pages/my/my_controller.dart';
-import 'package:saver_gallery/saver_gallery.dart';
+import 'package:kazumi/services/platform/photo_gallery.dart';
 import 'package:kazumi/services/player/audio_controller.dart';
 import 'package:kazumi/services/player/timed_shutdown_service.dart';
 import 'package:kazumi/utils/device.dart';
@@ -739,7 +739,11 @@ class _PlayerItemState extends State<PlayerItem>
       await _saveScreenshotToGallery();
       return;
     }
-    if (_screenshots.busy || _screenshotSheetOpen) return;
+    await _captureScreenshotCandidate();
+  }
+
+  Future<void> _captureScreenshotCandidate() async {
+    if (!mounted || _screenshots.busy || _screenshotSheetOpen) return;
     final episode = videoPageController.playbackEpisode;
     final source = videoPageController.src;
     final player = playerController.playback.mediaPlayer;
@@ -768,7 +772,9 @@ class _PlayerItemState extends State<PlayerItem>
       if (!added || _screenshots.candidates.length == 1) {
         KazumiDialog.showToast(
           message: added
-              ? '已截取画面，点击右上角图库挑选保存'
+              ? (Platform.isIOS
+                    ? '已截取候选画面，可在更多选项中挑选保存'
+                    : '已截取画面，点击右上角图库挑选保存')
               : _screenshots.message ?? '截图失败，请重试',
           showActionButton: _screenshots.candidates.isNotEmpty,
           actionLabel: '挑选截图',
@@ -787,11 +793,9 @@ class _PlayerItemState extends State<PlayerItem>
         KazumiDialog.showToast(message: '截图失败：未获取到图像');
         return;
       }
-      final result = await SaverGallery.saveImage(
+      final result = await savePngToGallery(
         screenshot,
-        fileName: DateTime.timestamp().millisecondsSinceEpoch.toString(),
-        extension: 'png',
-        skipIfExists: false,
+        DateTime.timestamp().millisecondsSinceEpoch.toString(),
       );
       if (mounted && !result.isSuccess) {
         KazumiDialog.showToast(message: '截图保存失败：${result.errorMessage}');
@@ -802,7 +806,10 @@ class _PlayerItemState extends State<PlayerItem>
   }
 
   Future<void> showScreenshotCandidates() async {
-    if (!isDesktop() || !mounted || _screenshotSheetOpen || _screenshots.busy) {
+    if ((!isDesktop() && !Platform.isIOS) ||
+        !mounted ||
+        _screenshotSheetOpen ||
+        _screenshots.busy) {
       return;
     }
     _screenshotSheetOpen = true;
@@ -1552,6 +1559,7 @@ class _PlayerItemState extends State<PlayerItem>
                             pauseForTimedShutdown: widget.pauseForTimedShutdown,
                             disableAnimations: widget.disableAnimations,
                             handleScreenShot: handleScreenshot,
+                            captureScreenshotCandidate: _captureScreenshotCandidate,
                             showScreenshotCandidates: showScreenshotCandidates,
                             skipOP: skipOP,
                           ),

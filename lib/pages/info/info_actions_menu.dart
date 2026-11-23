@@ -9,7 +9,7 @@ import 'package:kazumi/bean/widget/kazumi_menu.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/utils/device.dart';
-import 'package:saver_gallery/saver_gallery.dart';
+import 'package:kazumi/services/platform/photo_gallery.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class InfoActionsMenu extends StatefulWidget {
@@ -85,11 +85,7 @@ class _InfoActionsMenuState extends State<InfoActionsMenu> {
         return;
       }
 
-      final result = await SaverGallery.saveImage(
-        bytes,
-        fileName: fileName,
-        skipIfExists: false,
-      );
+      final result = await savePngToGallery(bytes, fileName);
       if (!result.isSuccess) {
         throw StateError(result.errorMessage ?? 'Gallery save failed');
       }
