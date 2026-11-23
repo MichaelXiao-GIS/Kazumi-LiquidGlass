@@ -16,7 +16,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       const bottom = 34.0;
-      var sortChanges = 0;
+      var ascending = true;
       final road = Road(
         name: '线路',
         data: List.generate(30, (i) => 'ep$i'),
@@ -66,16 +66,21 @@ void main() {
                             onEpisodeSelected: (_, _) {},
                             downloads: const {},
                           ),
-                          EpisodeCommentsView(
-                            episode: 1,
-                            episodeInfo: null,
-                            comments: commentsList,
-                            isLoading: false,
-                            hasError: false,
-                            isAscending: true,
-                            onToggleSort: () => sortChanges++,
-                            onSelectEpisode: () {},
-                            onRefresh: () {},
+                          StatefulBuilder(
+                            builder: (context, setState) => EpisodeCommentsView(
+                              episode: 1,
+                              episodeInfo: null,
+                              comments: ascending
+                                  ? commentsList
+                                  : commentsList.reversed.toList(),
+                              isLoading: false,
+                              hasError: false,
+                              isAscending: ascending,
+                              onToggleSort: () =>
+                                  setState(() => ascending = !ascending),
+                              onSelectEpisode: () {},
+                              onRefresh: () {},
+                            ),
                           ),
                         ],
                       ),
@@ -112,6 +117,7 @@ void main() {
         tester.getRect(find.byKey(const ValueKey('grid-ep-0-30'))).bottom,
         lessThanOrEqualTo(844 - bottom),
       );
+      expect(position.pixels, greaterThan(0));
       await tester.tap(find.text('评论'));
       await tester.pumpAndSettle();
       final comments = find.descendant(
@@ -120,13 +126,19 @@ void main() {
       );
       expect(tester.getRect(comments).bottom, 844);
       expect(MediaQuery.paddingOf(tester.element(comments)).bottom, bottom);
-      await tester.tap(find.text('最新'));
-      expect(sortChanges, 1);
       final commentPosition = tester
           .state<ScrollableState>(
             find.descendant(of: comments, matching: find.byType(Scrollable)),
           )
           .position;
+      expect(commentPosition.pixels, 0);
+      for (final label in ['最新', '最早']) {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(commentPosition.pixels, 0);
+        final first = ascending ? commentsList.first : commentsList.last;
+        expect(find.byKey(ObjectKey(first)).hitTestable(), findsOneWidget);
+      }
       commentPosition.jumpTo(commentPosition.maxScrollExtent);
       await tester.pumpAndSettle();
       commentPosition.jumpTo(commentPosition.maxScrollExtent);
@@ -136,6 +148,19 @@ void main() {
         lessThanOrEqualTo(844 - bottom),
       );
       expect(edge, findsOneWidget);
+      await tester.tap(find.text('选集'));
+      await tester.pumpAndSettle();
+      final restoredEpisodePosition = tester
+          .state<ScrollableState>(
+            find.descendant(of: episodeList, matching: find.byType(Scrollable)),
+          )
+          .position;
+      // Returning to the episode tab reveals the currently playing episode.
+      expect(restoredEpisodePosition.pixels, 0);
+      expect(
+        find.byKey(const ValueKey('grid-ep-0-1')).hitTestable(),
+        findsOneWidget,
+      );
     },
   );
   testWidgets('browsing other ranges and roads preserves the playing episode', (

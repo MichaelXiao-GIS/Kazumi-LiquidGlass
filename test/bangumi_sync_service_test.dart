@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/repositories/collect_crud_repository.dart';
+import 'package:kazumi/request/apis/bangumi_api.dart';
 import 'package:kazumi/request/clients/bangumi_client.dart';
 import 'package:kazumi/request/core/dio_factory.dart';
 import 'package:kazumi/request/core/network_exception.dart';
@@ -82,6 +83,40 @@ void main() {
     expect(GStorage.getSetting(SettingsKeys.bangumiSyncEnable), isTrue);
   });
 
+  for (final mode in ['direct', 'mirror', 'ech']) {
+    test('account and collection requests use official ECH in $mode mode',
+        () async {
+      final previousMode = GStorage.getSetting(SettingsKeys.bangumiAcceleration);
+      addTearDown(() =>
+          GStorage.putSetting(SettingsKeys.bangumiAcceleration, previousMode));
+      await GStorage.putSetting(SettingsKeys.bangumiAcceleration, mode);
+      adapter.respond = (request) async => request.uri.path == '/v0/me'
+          ? _user()
+          : _json({'data': [], 'total': 0});
+
+      await BangumiApi.getCurrentUser(accessToken: 'draft-token');
+      await BangumiApi.getBangumiCollectibles(username: 'saved-user');
+      const update = {'type': 2};
+      expect(await BangumiApi.updateBangumiById(123, update), isTrue);
+
+      expect(adapter.requests.map((request) => request.uri.path), [
+        '/v0/me',
+        '/v0/users/saved-user/collections',
+        '/v0/users/-/collections/123',
+      ]);
+      for (final request in adapter.requests) {
+        expect(request.uri.origin, 'https://api.bgm.tv');
+        expect(request.extra['ech'], isTrue);
+      }
+      expect(adapter.requests.map((request) => request.headers['Authorization']),
+          ['Bearer draft-token', 'Bearer saved-token', 'Bearer saved-token']);
+      expect(adapter.requests[1].uri.queryParameters,
+          {'subject_type': '2', 'limit': '50', 'offset': '0'});
+      expect(adapter.requests.last.method, 'POST');
+      expect(adapter.requests.last.data, update);
+    });
+  }
+
   test('ECH image acceleration preserves Bangumi API mirror routing', () async {
     final previousMode = GStorage.getSetting<String>(
       SettingsKeys.imageAcceleration,
@@ -100,6 +135,18 @@ void main() {
         adapter.requests.last.uri,
         Uri.parse(url).replace(host: 'api.kazumi.fyi'),
       );
+      expect(adapter.requests.last.headers.containsKey('Authorization'), isFalse);
+    }
+    adapter.respond = (_) async => _json({'data': []});
+    await BangumiApi.getBangumiMirrorPopularSubjects();
+    await BangumiApi.getBangumiMirrorSeasonCalendar(
+        ['2026-10-01', '2026-12-31']);
+    final homeRequests = adapter.requests.skip(2);
+    expect(homeRequests.map((request) => request.uri.path),
+        ['/kazumi/v1/popular/subjects', '/kazumi/v1/calendar/season']);
+    for (final request in homeRequests) {
+      expect(request.uri.host, 'api.kazumi.fyi');
+      expect(request.headers.containsKey('Authorization'), isFalse);
     }
   });
 
