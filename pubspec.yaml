@@ -1,7 +1,7 @@
 name: kazumi
 description: "A new Flutter project."
 publish_to: "none"
-version: 2.4.6+20416
+version: 2.4.7+20417
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
@@ -39,7 +39,7 @@ dependencies:
   audio_service_mpris:
     git:
       url: https://github.com/Predidit/audio-service-mpris.git
-      ref: d30b53fb7dbdd8f10ceda7447fe0a0218711a220
+      ref: 5c8de436994fab2ab4326bc2bbefca7c660b95aa
   audio_service_win:
     git:
       url: https://github.com/Predidit/audio_service_win.git
@@ -97,12 +97,12 @@ dependencies:
   media_kit:
     git:
       url: https://github.com/Predidit/media-kit.git
-      ref: cd75bcfe94ba45ebb6f6b940c68e072d079aee14
+      ref: 484639aca5ffc754a65876c22f01dbb070225732
       path: ./media_kit
   media_kit_video:
     git:
       url: https://github.com/Predidit/media-kit.git
-      ref: cd75bcfe94ba45ebb6f6b940c68e072d079aee14
+      ref: 484639aca5ffc754a65876c22f01dbb070225732
       path: ./media_kit_video
   macos_secure_bookmarks: ^0.2.1
 
