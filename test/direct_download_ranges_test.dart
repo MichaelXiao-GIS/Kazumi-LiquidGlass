@@ -114,21 +114,23 @@ void main() {
     Logger.level = originalLogLevel;
   });
 
+  DownloadRequest requestFor(DownloadEpisode target) => DownloadRequest(
+    recordKey: 'record',
+    bangumiId: 1,
+    pluginName: 'test',
+    episodeNumber: target.episodeNumber,
+    m3u8Url: 'http://127.0.0.1:${server.port}/video.mp4',
+    httpHeaders: {},
+    adBlockerEnabled: false,
+    episode: target,
+  );
+
   Future<void> download({
     bool resume = false,
     int? pauseAt,
     DownloadManager? downloader,
   }) async {
-    final request = DownloadRequest(
-      recordKey: 'record',
-      bangumiId: 1,
-      pluginName: 'test',
-      episodeNumber: 1,
-      m3u8Url: 'http://127.0.0.1:${server.port}/video.mp4',
-      httpHeaders: {},
-      adBlockerEnabled: false,
-      episode: episode,
-    );
+    final request = requestFor(episode);
     final manager = downloader ?? DownloadManager();
     final done = Completer<void>();
     manager.onProgress = (_, _, current, _) {
@@ -283,6 +285,76 @@ void main() {
     await expectComplete();
     expect(ranges, [null, 'bytes=1024-']);
   });
+
+  for (final queued in [false, true]) {
+    test(
+      'pause and immediately retry a ${queued ? "queued" : "running"} episode',
+      () async {
+        final manager = DownloadManager()..maxParallelEpisodes = queued ? 1 : 2;
+        final target = requestFor(episode);
+        final done = Completer<void>();
+        var retried = false;
+        serve = (response, range) {
+          if (range == null) {
+            partial(response, 0, block - 1);
+          } else {
+            partial(response, block, payload.length - 1);
+          }
+        };
+        manager.onProgress = (recordKey, number, current, _) {
+          if (!retried && current.totalBytes == block) {
+            retried = true;
+            if (queued) {
+              // The first episode occupies the only slot.
+              unawaited(manager.enqueue(target));
+              expect(episode.status, DownloadStatus.pending);
+            }
+            manager.pause(recordKey, target.episodeNumber);
+            // The download page persists these states and calls enqueue on retry.
+            episode.status = DownloadStatus.paused;
+            episode.status = DownloadStatus.downloading;
+            unawaited(manager.enqueue(target));
+            unawaited(manager.enqueue(target));
+            if (queued) manager.cancel(recordKey, number);
+          }
+          if (number == target.episodeNumber &&
+              current.status == DownloadStatus.completed &&
+              !done.isCompleted) {
+            done.complete();
+          }
+        };
+        if (queued) {
+          final other = DownloadEpisode(
+            2,
+            'other',
+            0,
+            DownloadStatus.pending,
+            0,
+            0,
+            0,
+            '',
+            (await root.createTemp('other-')).path,
+            '',
+            null,
+            '',
+            0,
+            '',
+          );
+          await manager.enqueue(requestFor(other));
+        } else {
+          await manager.enqueue(target);
+        }
+        await done.future.timeout(const Duration(seconds: 10));
+        await expectComplete();
+        expect(
+          ranges,
+          queued
+              ? [null, null, null, null, 'bytes=1024-']
+              : [null, null, null, 'bytes=1024-'],
+        );
+      },
+    );
+  }
 
   test('replaces the prefix when the range request returns 200', () async {
     serve = (response, _) {

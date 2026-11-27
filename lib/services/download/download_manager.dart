@@ -37,6 +37,7 @@ class DownloadTask {
   final int episodeNumber;
   CancelToken cancelToken;
   bool isPaused;
+  bool _priority = false;
 
   DownloadTask({
     required this.recordKey,
@@ -196,7 +197,7 @@ class DownloadManager implements IDownloadManager {
   final Map<String, _SpeedTracker> _speedTrackers = {};
   int maxParallelEpisodes = 2;
   int maxParallelSegments = 3;
-  int _runningCount = 0;
+  final Map<String, DownloadTask> _runningTasks = {};
 
   @override
   ProgressCallback? onProgress;
@@ -307,131 +308,76 @@ class DownloadManager implements IDownloadManager {
   }
 
   @override
-  Future<void> enqueue(DownloadRequest request) async {
-    final key = _taskKey(request.recordKey, request.episodeNumber);
-    if (_activeTasks.containsKey(key)) return;
-
-    final task = DownloadTask(
-      recordKey: request.recordKey,
-      episodeNumber: request.episodeNumber,
-    );
-
-    if (_runningCount < maxParallelEpisodes) {
-      _runningCount++;
-      _activeTasks[key] = task;
-      _runEpisodeDownload(
-        task: task,
-        bangumiId: request.bangumiId,
-        pluginName: request.pluginName,
-        m3u8Url: request.m3u8Url,
-        httpHeaders: request.httpHeaders,
-        adBlockerEnabled: request.adBlockerEnabled,
-        episode: request.episode,
-      );
-    } else {
-      request.episode.status = DownloadStatus.pending;
-      _queue.add(request);
-      _activeTasks[key] = task;
-    }
-  }
+  Future<void> enqueue(DownloadRequest request) async => _enqueue(request);
 
   @override
-  Future<void> enqueuePriority(DownloadRequest request) async {
-    final key = _taskKey(request.recordKey, request.episodeNumber);
+  Future<void> enqueuePriority(DownloadRequest request) async =>
+      _enqueue(request, priority: true);
 
-    _queue.removeWhere(
-      (r) =>
-          r.recordKey == request.recordKey &&
-          r.episodeNumber == request.episodeNumber,
-    );
-    _activeTasks.remove(key);
+  @override
+  Future<void> resume(DownloadRequest request) => enqueue(request);
+
+  void _enqueue(DownloadRequest request, {bool priority = false}) {
+    final key = _taskKey(request.recordKey, request.episodeNumber);
+    final existing = _activeTasks[key];
+    if (existing != null && !existing.isPaused) {
+      if (priority) {
+        existing._priority = true;
+        _processQueue();
+      }
+      return;
+    }
 
     final task = DownloadTask(
       recordKey: request.recordKey,
       episodeNumber: request.episodeNumber,
-    );
-
-    // Start immediately, bypassing the parallel limit (priority download)
-    _runningCount++;
+    ).._priority = priority;
     _activeTasks[key] = task;
-    _runEpisodeDownload(
-      task: task,
-      bangumiId: request.bangumiId,
-      pluginName: request.pluginName,
-      m3u8Url: request.m3u8Url,
-      httpHeaders: request.httpHeaders,
-      adBlockerEnabled: request.adBlockerEnabled,
-      episode: request.episode,
-    );
+    _queue.add(request);
+    request.episode.status = DownloadStatus.pending;
+    _processQueue();
   }
 
   @override
   void pause(String recordKey, int episodeNumber) {
-    final key = _taskKey(recordKey, episodeNumber);
-    final task = _activeTasks[key];
-    if (task != null) {
-      task.isPaused = true;
-      task.cancelToken.cancel('paused');
-    }
-  }
-
-  @override
-  Future<void> resume(DownloadRequest request) async {
-    final key = _taskKey(request.recordKey, request.episodeNumber);
-    _activeTasks.remove(key);
-
-    final task = DownloadTask(
-      recordKey: request.recordKey,
-      episodeNumber: request.episodeNumber,
-    );
-    _activeTasks[key] = task;
-
-    if (_runningCount < maxParallelEpisodes) {
-      _runningCount++;
-      _runEpisodeDownload(
-        task: task,
-        bangumiId: request.bangumiId,
-        pluginName: request.pluginName,
-        m3u8Url: request.m3u8Url,
-        httpHeaders: request.httpHeaders,
-        adBlockerEnabled: request.adBlockerEnabled,
-        episode: request.episode,
-      );
-    } else {
-      _queue.add(request);
-    }
+    _stopTask(recordKey, episodeNumber, cancel: false);
   }
 
   @override
   void cancel(String recordKey, int episodeNumber) {
+    _stopTask(recordKey, episodeNumber, cancel: true);
+  }
+
+  void _stopTask(String recordKey, int episodeNumber, {required bool cancel}) {
     final key = _taskKey(recordKey, episodeNumber);
     final task = _activeTasks[key];
-    if (task != null) {
-      // The unwinding worker then leaves its episode paused, never active.
-      task.isPaused = true;
-      task.cancelToken.cancel('cancelled');
+    if (task == null) return;
+    task.isPaused = true;
+    task.cancelToken.cancel(cancel ? 'cancelled' : 'paused');
+    _queue.removeWhere(
+      (r) => r.recordKey == recordKey && r.episodeNumber == episodeNumber,
+    );
+    if (cancel || !identical(_runningTasks[key], task)) {
       _activeTasks.remove(key);
-      _queue.removeWhere(
-        (r) => r.recordKey == recordKey && r.episodeNumber == episodeNumber,
-      );
     }
   }
 
   void _processQueue() {
-    while (_runningCount < maxParallelEpisodes && _queue.isNotEmpty) {
-      final request = _queue.removeAt(0);
+    // A retry can arrive before the previous writer has closed its file.
+    // Other episodes may still use the remaining download slots.
+    for (var i = 0; i < _queue.length;) {
+      final request = _queue[i];
       final key = _taskKey(request.recordKey, request.episodeNumber);
-      final existingTask = _activeTasks[key];
-      if (existingTask == null ||
-          existingTask.isPaused ||
-          existingTask.cancelToken.isCancelled) {
-        _activeTasks.remove(key);
+      final task = _activeTasks[key]!;
+      if (_runningTasks.containsKey(key) ||
+          (!task._priority && _runningTasks.length >= maxParallelEpisodes)) {
+        i++;
         continue;
       }
-
-      _runningCount++;
+      _queue.removeAt(i);
+      _runningTasks[key] = task;
       _runEpisodeDownload(
-        task: existingTask,
+        task: task,
         bangumiId: request.bangumiId,
         pluginName: request.pluginName,
         m3u8Url: request.m3u8Url,
@@ -699,7 +645,7 @@ class DownloadManager implements IDownloadManager {
       _notifyProgress(task, episode);
       KazumiLogger().e('DownloadManager: episode download failed', error: e);
     } finally {
-      _onTaskComplete(task);
+      _onTaskComplete(task, episode);
     }
   }
 
@@ -937,14 +883,18 @@ class DownloadManager implements IDownloadManager {
     }
   }
 
-  void _onTaskComplete(DownloadTask task) {
+  void _onTaskComplete(DownloadTask task, DownloadEpisode episode) {
     final key = _taskKey(task.recordKey, task.episodeNumber);
     // A retry may already own this key while the cancelled task is unwinding.
-    if (_activeTasks[key] == null || identical(_activeTasks[key], task)) {
+    final owner = _activeTasks[key];
+    _runningTasks.remove(key);
+    _speedTrackers.remove(key);
+    if (identical(owner, task)) {
       _activeTasks.remove(key);
-      _speedTrackers.remove(key);
+    } else if (owner != null) {
+      // The old worker may have set the shared episode to paused on exit.
+      episode.status = DownloadStatus.pending;
     }
-    _runningCount--;
     _processQueue();
   }
 
